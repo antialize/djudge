@@ -1,1 +1,1 @@
-add_library(common packagesocket.cc)
+add_library(common packagesocket.cc saferun.cc)

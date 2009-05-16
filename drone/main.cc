@@ -10,6 +10,11 @@
 #include <map>
 #include "commandhandler.hh"
 #include "error.hh"
+#include "langsupport.hh"
+using namespace std;
+
+std::multimap<float, LangSupport *> langByRank;
+std::map<std::string, LangSupport *> langByName;
 
 class RequestHandler {
 private:
@@ -42,7 +47,15 @@ public:
     };
 };
 
+void addLang(LangSupport * l) {
+	langByRank.insert( make_pair(l->rank(), l) );
+	langByName[ l->name() ] = l;
+}
+
 int main(int argc, char ** argv) {
+	addLang(produceCCLangSupport());
+	addLang(producePythonLangSupport());
+
     RequestHandler r;
     r.addHandler(produceVersionHandler());
     r.addHandler(producePingHandler());

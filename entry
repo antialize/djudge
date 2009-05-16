@@ -1,0 +1,34 @@
+#-*- mode: org; tab-width: 4; indent-tabs-mode: t; -*-
+#+STARTUP: hidestars
+
+The following is an outline of the derectory structure of an entry, and a documentation of the content
+* "Entryname"/
+** reference.cc
+   C++ reference implementation. In general you will need to implement
+   atleast one reference implementation, or a special judge. If a
+   reference implementation is made for a certain language, then the
+   runnigtime constraints can be given as a factor for that
+   language. The reference implemenation is used to calculate the
+   correct responses for the inputs.
+** reference.py
+   Python reference implemenation, see [[reference.cc]].
+** reference.java
+   Java reference implemenation, see [[reference.cc]].
+** specialjudge.cc
+   c++ judge implemenation. A special judge must read the output from
+   a solver from stdin, the exit value of the judge indicates its
+   judgment:
+   - 0 indicates that the output is correct.
+   - 1 indicates that the output was incorrect.
+   - 2 indicates an presentation error.
+
+
+** specialjudge.java
+   Python judge implementation, see [[specialjudge.cc]]
+** specialjudge.py
+  Java judge implemenation, see [[specialjudge.cc]].
+** inputs/
+*** myinput
+  Text file with the input instance
+
+
