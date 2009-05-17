@@ -10,15 +10,22 @@ public:
 		string path=name+".py";
 		return access(path.c_str(),R_OK) == 0;
 	}
-	int compile(std::string) {return RUN_SUCCESS;}
+	int compile(std::string, int user, int group) {return RUN_SUCCESS;}
+
+	void restrictRun(std::string name ,bool entryAccess) {
+	};
+	void unrestrictRun(std::string name) {
+	};
+
 	int run(std::string name, 
 			int in, int out, int err, 
 			size_t memoryLimit,
 			size_t outputLimit,
 			float & time,
-			int user) {
+			int user,
+		    int group) {
 		string path=name+".py";
-		return saferun(in,out,err,memoryLimit,outputLimit,user,time,"python","python",path.c_str(),NULL);
+		return saferun(in,out,err,memoryLimit,outputLimit,user,group,time,"python","python",path.c_str(),NULL);
 	}
 	float rank() {return 99;}
 	string name() {return "python";}

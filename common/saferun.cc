@@ -24,6 +24,7 @@ int saferun(int in,
 			size_t memoryLimit, 
 			size_t outputLimit, 
 			int user, 
+			int group,
 			float & time,
 			const char * program, 
 			... 
@@ -63,7 +64,8 @@ int saferun(int in,
 
 			struct rlimit l = {memoryLimit, memoryLimit};
 			if(setrlimit(RLIMIT_AS,&l) == -1) THROW_PE("setrlimit() failed\n");			
-			//TODO: call setreuid here
+			setregid(group,group);
+			setreuid(user,user);
 			va_list ap;
 			std::vector<const char *> args;
 			va_start(ap, program);
@@ -101,7 +103,7 @@ int saferun(int in,
 	int x = read(timep[0], i, 39);
 	int status;
 	time = -1;
-	waitpid(timer, &status, 0);
+	if(waitpid(timer, &status, 0) == -1) return RUN_INTERNAL_ERROR;
 	if(x == -1 || !WIFEXITED(status)) return RUN_INTERNAL_ERROR;
 	if(WEXITSTATUS(status) != 0) return WEXITSTATUS(status);
 	if(outputlimiter != 0) {

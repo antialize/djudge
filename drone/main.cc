@@ -11,10 +11,15 @@
 #include "commandhandler.hh"
 #include "error.hh"
 #include "langsupport.hh"
-using namespace std;
+#include <fstream>
+#include <iostream>
+#include <boost/program_options.hpp>
+#include "globals.hh"
+#include <sys/types.h>
+#include <pwd.h>
+namespace po = boost::program_options;
 
-std::multimap<float, LangSupport *> langByRank;
-std::map<std::string, LangSupport *> langByName;
+using namespace std;
 
 class RequestHandler {
 private:
@@ -53,6 +58,56 @@ void addLang(LangSupport * l) {
 }
 
 int main(int argc, char ** argv) {
+	int port;
+	std::string host;
+	std::string droneUserName;
+	std::string nobodyUserName;
+
+	po::options_description common("");
+	common.add_options()
+		("port,p", po::value<int>(&port), "The port of the overlord to connect to.")
+		("address,a", po::value<string>(&host), "The adderss of the overload to connect to.")
+		("proxyPath", po::value<string>(&proxyPath), "The path to the directory containing the proxy executables.")
+		("entriesPath", po::value<string>(&entriesPath), "The path to the entries directory.")
+		("droneUser", po::value<string>(&droneUserName), "The username of the drone user.")
+		("nobodyUser", po::value<string>(&nobodyUserName), "The username of the nobody user.");
+	
+	po::options_description cmdline("Judge drone client");
+	cmdline.add_options()
+		("help,h", "Display this message.");
+	cmdline.add(common);
+ 
+	po::variables_map vm;
+	try {
+		std::ifstream cfg;
+		cfg.open("~/.djudge/drone");
+		po::store(po::parse_command_line(argc,argv, cmdline), vm);
+		po::store(po::parse_config_file( cfg, common), vm);
+		po::notify(vm);
+		if (vm.count("help")) {
+			cout << cmdline << endl;
+			exit(0);
+		}
+		if(vm.count("address") == 0) throw po::validation_error("address not specified.");
+		if(vm.count("proxyPath") == 0) throw po::validation_error("proxyPath not specified.");
+		if(vm.count("entriesPath") == 0) throw po::validation_error("entriesPath not specified.");
+		if(vm.count("droneUser") == 0) throw po::validation_error("droneUser not specified.");
+		if(vm.count("nobodyUser") == 0) throw po::validation_error("nobodyUser not specified.");
+	} catch(std::exception & e) {
+		cerr << "Argument error: " << e.what() << endl;
+		cerr << cmdline << endl;
+		exit(1);
+	}
+
+	struct passwd * p = getpwnam(droneUserName.c_str());
+	if(p == NULL) THROW_PE("getpwnam(%s) failed:", droneUserName.c_str());
+	droneUser = p->pw_uid;
+	droneGroup = p->pw_gid;
+	p = getpwnam(nobodyUserName.c_str());
+	if(p == NULL) THROW_PE("getpwnam(%s) failed:", nobodyUserName.c_str());
+	nobodyUser = p->pw_uid;
+	nobodyGroup = p->pw_gid;
+	printf("%d %d\n",droneUser, nobodyUser);
 	addLang(produceCCLangSupport());
 	addLang(producePythonLangSupport());
 
@@ -62,6 +117,5 @@ int main(int argc, char ** argv) {
     r.addHandler(produceListHandler());
     r.addHandler(produceImportHandler());
     r.addHandler(produceDestroyHandler());
-    //r.addHandler(produceJudgeHandler());
-    r.run("127.0.0.1",1234);
+    r.run(host.c_str(),port);
 }
