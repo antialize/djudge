@@ -27,6 +27,11 @@ using namespace std;
 #include "langsupport.hh"
 #include "globals.hh"
 #include "results.hh"
+#include <sys/types.h>
+#include <dirent.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
 class JudgeHandler: public CommandHandler {
 public:
@@ -52,6 +57,77 @@ public:
 			LangSupport * l = langByName[language];
 			
 			if(!l->compile(tmpnam, nobodyUser ,nobodyGroup,s)) return;
+
+			string dir=entriesPath + "/" + entry;
+			if(chdir(dir.c_str()) == -1) THROW_PE("chdir() failed");
+ 			DIR * d = opendir("inputs");
+			if(d == NULL)  {
+				s.write(XSTR(RUN_INVALID_ENTRY));
+				s.write("");
+				unlink(tmpnam);
+				return;
+			}
+
+
+			while(struct dirent * e = readdir(d)) {
+				if(e->d_name[0] == '.' || e->d_name[0] == '\0') continue;
+				char input[1024];
+				sprintf(input,"inputs/%s",e->d_name);
+				char output[1024];
+				sprintf(input,"outputs/%s",e->d_name);
+				int in1=open(input,O_RDONLY);
+				if(in1 == -1) THROW_PE("open() failed\n");
+				int in2=open(input,O_RDONLY);
+				if(in2 == -1) THROW_PE("open() failed\n");
+				int out=open(output,O_RDONLY);
+				//There might be no output if we are using some special judge
+				
+				int p[2];
+				if(pipe(p) == -1) THROW_PE("pipe() failed");
+				int judge = fork();
+				if(judge == 0) {
+					close(in1);
+					close(p[1]);
+					dup2(p[0],0);
+					if(out == 3 && in2 == 4) {
+						dup2(in2,5);
+						close(in2);
+						dup2(out,4);
+						close(out);
+						dup2(5,3);
+						close(5);
+					} else if(out == 3) {
+						dup2(out,4);
+						close(out);
+						dup2(in2,3);
+						close(in2);
+					} else {
+						dup2(in2,3);
+						close(in2);
+						dup2(out,4);
+						close(out);
+					}
+					//Run judge here
+				}
+				if(judge == -1) THROW_PE("fork() failed");
+				
+				int exe = fork();
+				if(exe == 0) {
+					close(in2);
+					close(out);
+					close(p[0]);
+					//run(in1,p[1],2);
+				}
+
+				
+				
+				
+				
+
+				//Create the judging chain
+			}
+			
+			
 			//Open entity
 			//Run instances
 			//Calculate correct answer

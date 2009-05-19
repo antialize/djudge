@@ -32,4 +32,5 @@
 #define RUN_INTERNAL_ERROR         7
 #define RUN_COMPILATION_TIME_LIMIT_EXCEEDED 8
 #define RUN_COMPILATION_ERROR      9
+#define RUN_INVALID_ENTRY          10
 #endif //__results_hh__
