@@ -121,7 +121,6 @@ int main(int argc, char ** argv) {
 	if(p == NULL) THROW_PE("getpwnam(%s) failed:", nobodyUserName.c_str());
 	nobodyUser = p->pw_uid;
 	nobodyGroup = p->pw_gid;
-	printf("%d %d\n",droneUser, nobodyUser);
 	addLang(produceCCLangSupport());
 	addLang(producePythonLangSupport());
 

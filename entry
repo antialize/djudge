@@ -36,14 +36,21 @@ The following is an outline of the derectory structure of an entry, and a docume
    - 0 indicates that the output is correct.
    - 1 indicates that the output was incorrect.
    - 2 indicates an presentation error.
-
-
 ** specialjudge.java
    Python judge implementation, see [[specialjudge.cc]]
 ** specialjudge.py
-  Java judge implemenation, see [[specialjudge.cc]].
-** inputs/
+   Java judge implemenation, see [[specialjudge.cc]].
+**config
+   Simple configuration file, in .ini file format
+   - timelimit    integer in seconds
+   - memorylimit  integer in megabytes
+   - sourcelimit  integer in kilobytes
+   - languages    comma seperated list of languages (leave out for all)
+   - outputlimit  integer in megabytes
+**inputs/
 *** myinput
   Text file with the input instance
+
+
 
 
