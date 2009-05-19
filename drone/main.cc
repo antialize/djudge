@@ -55,14 +55,11 @@ public:
 	if(connect(s, (struct sockaddr *)&server_addr,  sizeof(struct sockaddr)) == -1)
 	    THROW_PE("connect() failed\n");
 	PackageSocket ss(s);
-	char buff[1024];
 	while(ss.canRead()) {
 	    //No commant can be more then 1023 chars long
-	    size_t x=1023;
-	    if(!ss.read(buff,x)) continue;
-	    buff[x] = '\0';
-	    if(!strcmp(buff,"quit")) break;
-	    std::map<std::string, CommandHandler *>::iterator i = handlers.find(buff);
+		string command = ss.readString(1024);
+	    if(command == "quit") break;
+	    std::map<std::string, CommandHandler *>::iterator i = handlers.find(command);
 	    if(i == handlers.end()) ss.write("invalid command");
 	    else i->second->handle(ss);
 	}

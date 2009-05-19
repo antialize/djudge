@@ -42,113 +42,133 @@ class ImportHandler: public CommandHandler {
 public:
 	std::string name() const {return "import";}
 	void handle(PackageSocket & s) {
-		umask(~S_IRWXU);
-		//Read the name of the new entity
-		char name[1024];
-		size_t x=1023;
-		while(!s.read(name,x)) {}
-		name[x] = '\0';
-		printf("==============> importing %s <==============\n",name);
-		//Extract the archive on the fly
-		int pipefd[2];
-		if(pipe(pipefd) == -1) THROW_PE("pipe() failed\n");
-		pid_t r = fork();
-		if(r == 0) {
-			close(pipefd[1]);
-			if(dup2(pipefd[0],0) == -1) {perror("dup2() failed"); exit(-1);}
-			setregid(droneGroup, droneGroup);
-			setreuid(droneUser,droneUser);
-			execlp("tar","tar","-xjvC","entries", NULL);
-			perror("execlp() falied"); 
-			exit(-1);
-		}
-		if(r == -1) THROW_PE("fork() failed\n");
-		size_t l = 10240;
-		char buff[l];
-		close(pipefd[0]);
-		while(!s.read(buff,l)) {
-			if(write(pipefd[1], buff, l) != l) 
+		try {
+			umask(~S_IRWXU);
+			//Read the name of the new entity
+			std::string name = s.readString(1024);
+			printf("==============> importing %s <==============\n",name.c_str());
+			//Extract the archive on the fly
+			int pipefd[2];
+			if(pipe(pipefd) == -1) THROW_PE("pipe() failed\n");
+			pid_t r = fork();
+			if(r == 0) {
+				close(pipefd[1]);
+				if(dup2(pipefd[0],0) == -1) {perror("dup2() failed"); exit(-1);}
+				setregid(droneGroup, droneGroup);
+				setreuid(droneUser,droneUser);
+				execlp("tar","tar","-xjvC","entries", NULL);
+				perror("execlp() falied"); 
+				exit(-1);
+			}
+			if(r == -1) THROW_PE("fork() failed\n");
+			size_t l = 10240;
+			char buff[l];
+			close(pipefd[0]);
+			while(!s.read(buff,l)) {
+				if(write(pipefd[1], buff, l) != (int)l) 
+					THROW_PE("write failed");
+			}
+			if(write(pipefd[1], buff, l) != (int)l) 
 				THROW_PE("write failed");
-		}
-		if(write(pipefd[1], buff, l) != l) 
-			THROW_PE("write failed");
-		close(pipefd[1]);
-		int status;
-		if(waitpid(r, &status, 0) == -1) THROW_PE("waitpid() failed\n");
-		if(!WIFEXITED(status) || WEXITSTATUS(status) == 0) s.write("failed");
-
-		if(chdir(entriesPath.c_str()) == -1) THROW_PE("chdir() failed\n");
-		if(chdir(name) == -1) THROW_PE("chdir() failed\n");
-		printf("Generating additional inputs\n");
-		
-        //Generate additional inputs here
-		r = fork();
-		if(r == 0) {
-			setregid(droneGroup, droneGroup);
-			setreuid(droneUser, droneUser);
-			mkdir("inputs",0700);
-			mkdir("outputs",0700);
-			mkdir("times",0700);
-			exit(0);
-		} 
-		if(r == -1) THROW_PE("fork() failed\n");
-		if(waitpid(r, &status, 0) == -1) THROW_PE("waitpid() failed\n");
-		if(!WIFEXITED(status) || WEXITSTATUS(status) == 0) s.write("failed");
-
-		for(langByRank_t::iterator i = langByRank.begin(); 
-			i != langByRank.end(); ++i)  {
-			LangSupport * l = i->second;
-			if(!l->hasSource("inputGenerator")) continue;
-			if(l->compile("inputGenerator", droneUser, droneGroup) != RUN_SUCCESS) goto fail;
-			float time=60;
-			l->restrictRun("inputGenerator", true);
-			if(l->run("inputGenerator", 0, 1, 2, 100 * 1024 * 1024, 0, time, droneUser, droneGroup) != RUN_SUCCESS) goto fail;
-			l->unrestrictRun("inputGenerator");
-		}
-		
-		printf("Generating outputs and times\n");
-		//Generate expected outputs
-		for(langByRank_t::iterator i = langByRank.begin(); 
-			i != langByRank.end(); ++i)  {
-			LangSupport * l = i->second;
-			if(!l->hasSource("reference")) continue;
-			if(l->compile("reference", droneUser, droneGroup) != RUN_SUCCESS) {
-				printf("Compile failed\n");
-				goto fail;
+			close(pipefd[1]);
+			int status;
+			if(waitpid(r, &status, 0) == -1) THROW_PE("waitpid() failed\n");
+			if(!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
+				s.write(XSTR(RUN_EXTRACT_ERROR));
+				char buff[100];
+				snprintf(buff,100, "unpacking faild with exitcode %d",WEXITSTATUS(status));
+				buff[100] = '\0';
+				s.write(buff);
+				return;
 			}
-			l->restrictRun("inputGenerator", false);
-			DIR * d = opendir("inputs");
-			if(d == NULL) goto fail;
-			while(struct dirent * e = readdir(d)) {
-				if(e->d_name[0] == '.' || e->d_name[0] == '\0') continue;
-				char buff[1024];
-				sprintf(buff,"inputs/%s",e->d_name);
+			if(chdir(entriesPath.c_str()) == -1 ||
+			   chdir(name.c_str()) == -1) {
+				s.write(XSTR(RUN_EXTRACT_ERROR));
+				s.write("Unable to cd into the supposed dir that was extracted");
+				return;
+			}
+			printf("Generating additional inputs\n");
+			//Generate additional inputs here
+			r = fork();
+			if(r == 0) {
+				setregid(droneGroup, droneGroup);
+				setreuid(droneUser, droneUser);
+				mkdir("inputs",0700);
+				mkdir("outputs",0700);
+				mkdir("times",0700);
+				exit(0);
+			} 
+			if(r == -1) THROW_PE("fork() failed\n");
+			if(waitpid(r, &status, 0) == -1) THROW_PE("waitpid() failed\n");
+			if(!WIFEXITED(status) || WEXITSTATUS(status) == 0) s.write("failed");
+
+			for(langByRank_t::iterator i = langByRank.begin(); 
+				i != langByRank.end(); ++i)  {
+				LangSupport * l = i->second;
+				if(!l->hasSource("inputGenerator")) continue;
+				if(!l->compile("inputGenerator", droneUser, droneGroup, s)) return;
 				float time=60;
-				int in=open(buff,O_RDONLY);
-				sprintf(buff,"outputs/%s",e->d_name);
-				int out=open(buff,O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
-				int r = l->run("reference",in,out,2,1024*1024*100,1024*1024*100,time, droneUser, droneGroup);
-				printf("Running %s reference solution on %s, finished in time %f with result %d\n",
-					   l->name().c_str(), e->d_name, time, r);
-				close(in);
-				close(out);
-				chown(buff, droneUser, droneGroup);
-				if(r != RUN_SUCCESS) goto fail;
-				sprintf(buff,"times/%s.%s",e->d_name,l->name().c_str());
-				FILE * f = fopen(buff,"w");
-				fprintf(f,"%f\n",time);
-				fclose(f);
-				chown(buff, droneUser, droneGroup);
+				l->restrictRun("inputGenerator", true);
+				int r = l->run("inputGenerator", 0, 1, 2, 100 * 1024 * 1024, 0, time, droneUser, droneGroup);
+				if(r != RUN_SUCCESS) {
+					char buff[1024];
+					sprintf(buff,"%d",r);
+					s.write(buff);
+					sprintf(buff,"%s inputGenerator failed",l->name().c_str());
+					s.write(buff);
+					return;
+				}
+				l->unrestrictRun("inputGenerator");
 			}
-			l->unrestrictRun("inputGenerator");
-			closedir(d);
+		
+			printf("Generating outputs and times\n");
+			//Generate expected outputs
+			for(langByRank_t::iterator i = langByRank.begin(); 
+				i != langByRank.end(); ++i)  {
+				LangSupport * l = i->second;
+				if(!l->hasSource("reference")) continue;
+				if(!l->compile("reference", droneUser, droneGroup, s)) return;
+				l->restrictRun("inputGenerator", false);
+				DIR * d = opendir("inputs");
+				if(d == NULL) THROW_PE("opendir() failed");
+				while(struct dirent * e = readdir(d)) {
+					if(e->d_name[0] == '.' || e->d_name[0] == '\0') continue;
+					char buff[1024];
+					sprintf(buff,"inputs/%s",e->d_name);
+					float time=60;
+					int in=open(buff,O_RDONLY);
+					sprintf(buff,"outputs/%s",e->d_name);
+					int out=open(buff,O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
+					int r = l->run("reference",in,out,2,1024*1024*100,1024*1024*100,time, droneUser, droneGroup);
+					printf("Running %s reference solution on %s, finished in time %f with result %d\n",
+						   l->name().c_str(), e->d_name, time, r);
+					close(in);
+					close(out);
+					chown(buff, droneUser, droneGroup);
+					if(r != RUN_SUCCESS) {
+						char buff[1024];
+						sprintf(buff,"%d",r);
+						s.write(buff);
+						snprintf(buff,1023,"%s reference soluction falied on input %s",l->name().c_str(), e->d_name);
+						buff[1023] = '\0';
+						s.write(buff);
+						return;
+					}
+					sprintf(buff,"times/%s.%s",e->d_name,l->name().c_str());
+					FILE * f = fopen(buff,"w");
+					if(f == NULL) THROW_PE("fopen() failed");
+					fprintf(f,"%f\n",time);
+					fclose(f);
+					if(chown(buff, droneUser, droneGroup) == -1) THROW_PE("chown() failed");
+				}
+				l->unrestrictRun("inputGenerator");
+				closedir(d);
+			}
+			s.write(XSTR(RUN_SUCCESS));
+		} catch(CommonException & e) {
+			s.write(XSTR(RUN_INTERNAL_ERROR));
+			s.write(e.what());
 		}
-		s.write("success");
-		chdir("../..");
-		return;
-	fail:
-		s.write("failed");
-		chdir("../..");
 	}
 };
 CommandHandler * produceImportHandler() {return new ImportHandler();}

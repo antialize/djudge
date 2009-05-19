@@ -26,14 +26,14 @@
 
 class CommonException: public std::exception {
 private:
-	char buff[2048];
+	char buff[1024*8];
 public:
 	inline CommonException(int line, const char * file, bool en, const char * format, ...) {
 		va_list ap;
 		va_start(ap, format);
-		int i=snprintf(buff, 2048, "%s: %d\n",file,line);
-		if(en && errno) i+=snprintf(buff+i, 2048-i, "%d: %s\n",errno,strerror(errno));
-		vsnprintf(buff+i, 2048-i, format, ap);
+		int i=snprintf(buff, 1024*8, "%s: %d\n",file,line);
+		if(en && errno) i+=snprintf(buff+i, 1024*8-i, "%d: %s\n",errno,strerror(errno));
+		vsnprintf(buff+i, 1024*8-i, format, ap);
 		va_end(ap);
 	}
 	const char* what() const throw () {return buff;}

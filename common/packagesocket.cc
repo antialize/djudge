@@ -21,6 +21,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <string>
 
 PackageSocket::PackageSocket(int _): 
 	max_buff_size(1024*128), sock(_), 
@@ -76,7 +77,15 @@ bool PackageSocket::read(char * b, size_t & len) {
 	return false;
 }
 
-void PackageSocket::write(char *b, size_t len, bool end_of_package) {
+std::string PackageSocket::readString(int maxlen) {
+	char buff[maxlen+1];
+	size_t x=1023;
+	while(!read(buff,x)) {};
+	buff[x] = '\0';
+	return buff;
+}
+
+void PackageSocket::write(const char *b, size_t len, bool end_of_package) {
 	if(len == 0) len=strlen(b);
 	for(size_t i=0; i < len; ++i) {
 		if(write_buff_used+2 >= max_buff_size) {

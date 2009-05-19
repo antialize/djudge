@@ -19,6 +19,9 @@
 #ifndef __results_hh__
 #define __results_hh__
 
+#define STR(x)   #x
+#define XSTR(x)  STR(x)
+
 #define RUN_SUCCESS                0
 #define RUN_EXIT_NOT_ZERO          1
 #define RUN_PRESENTATION_ERROR     2
@@ -27,5 +30,6 @@
 #define RUM_RUNTIME_ERROR          5
 #define RUN_OUTPUT_LIMIT_EXCEEDED  6
 #define RUN_INTERNAL_ERROR         7
-
+#define RUN_COMPILATION_TIME_LIMIT_EXCEEDED 8
+#define RUN_COMPILATION_ERROR      9
 #endif //__results_hh__

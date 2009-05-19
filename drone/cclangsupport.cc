@@ -21,6 +21,9 @@
 #include "results.hh"
 #include "apparmor.hh"
 #include "globals.hh"
+#include "error.hh"
+#include <sys/wait.h>
+#include <stdlib.h>
 using namespace std;
 
 class CCLangSupport: public LangSupport {
@@ -58,15 +61,15 @@ public:
 		appArmorRemoveProfile(buff);
 	}
 
-	int compile(std::string name, int user, int group) {
+	bool compile(std::string name, int user, int group, PackageSocket & s) {
 		string src=name+".cc";
 		string dst=name+".out";
 		float time=20;
 		char cwd[1025];
-		getcwd(cwd,1024);
+		bool result=false;
+		if(getcwd(cwd,1024) == NULL) THROW_PE("getcwd() failed");
 		
 		std::string gpp=proxyPath+"/proxy_g++";
-		printf("hello\n");
 		appArmorLoadProfile(
 			"#include <tunables/global>\n"
 			"%s {\n"
@@ -88,10 +91,51 @@ public:
 			gpp.c_str(),gpp.c_str(),
 			cwd,src.c_str(),
 			cwd,dst.c_str());
-		printf("hello\n");
-		int x = saferun(0,1,2,100*1024*1024,0,user,group,time,"g++","g++","-O2" , "-Wall" , "-W", "-o", dst.c_str(), src.c_str(), NULL);
+		
+		int p[2];
+		if(pipe(p) == -1) THROW_PE("pipe() failed");
+		pid_t f = fork();
+		if(f == 0) {
+			close(p[0]);
+			exit(saferun(0,p[1],p[1],100*1024*1024,0,user,group,time,"g++","g++","-O2" , "-Wall" , "-W", "-o", dst.c_str(), src.c_str(), NULL));
+		}
+		if(f == -1) THROW_PE("fork() failed");
+		close(p[1]);
+		std::string res;
+		while(true) {
+			char buff[1024*128];
+			int r = read(p[0],buff,1024*128);
+			if(r == -1) THROW_PE("read() failed");
+			if(r == 0) break;
+			res += buff;
+		}
+		close(p[0]);
+		int stat;
+		if(waitpid(f,  &stat, 0) == -1) THROW_PE("waitpid() failed");
+		if(!WIFEXITED(stat)) {
+			s.write(XSTR(RUN_INTERNAL_ERROR));
+			s.write("Somehow I was terminated\n");
+		} else {
+			switch(WEXITSTATUS(stat)) {
+			case RUN_SUCCESS:
+				result = true;
+				break;
+			case RUN_EXIT_NOT_ZERO:
+				s.write(XSTR(RUN_COMPILATION_ERROR));
+				s.write(res.c_str());
+				break;
+			case RUN_TIME_LIMIT_EXCEEDED:
+				s.write(XSTR(RUN_COMPILATION_TIME_LIMIT_EXCEEDED));
+				s.write(res.c_str());
+				break;
+			default:
+				s.write(XSTR(RUN_INTERNAL_ERROR));
+				s.write(res.c_str());
+				break;
+			}
+		}
 		appArmorRemoveProfile(gpp.c_str());
-		return x;
+		return result;
 	}
 	int run(std::string name, 
 			int in, int out, int err, 

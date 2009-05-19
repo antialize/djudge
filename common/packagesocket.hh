@@ -19,6 +19,7 @@
 #ifndef __packagesocket_hh__
 #define __packagesocket_hh__
 #include <cstring>
+#include <string>
 
 class PackageSocket {
 private:
@@ -35,7 +36,8 @@ public:
     PackageSocket(int sock);
     ~PackageSocket();
     bool read(char * b, size_t & len);
-    void write(char * b, size_t len=0, bool end_of_package=true);
+	std::string readString(int maxlen);
+    void write(const char * b, size_t len=0, bool end_of_package=true);
     bool canRead();
 };
 #endif //__packagesocket_hh__

@@ -27,8 +27,7 @@ public:
 		string path=name+".py";
 		return access(path.c_str(),R_OK) == 0;
 	}
-	int compile(std::string, int user, int group) {return RUN_SUCCESS;}
-
+	bool compile(std::string, int user, int group, PackageSocket & s) {return true;}
 	void restrictRun(std::string name ,bool entryAccess) {
 	};
 	void unrestrictRun(std::string name) {

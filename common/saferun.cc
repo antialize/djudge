@@ -28,6 +28,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <vector>
+#include <sys/wait.h>
 
 static pid_t child;
 void timeout(int) {

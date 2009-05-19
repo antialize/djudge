@@ -20,11 +20,12 @@
 #define __langsupport_hh__
 #include <string>
 #include <map>
+#include "packagesocket.hh"
 
 class LangSupport {
 public:
 	virtual bool hasSource(std::string name) = 0;
-	virtual int compile(std::string name, int user, int group) = 0;
+	virtual bool compile(std::string name, int user, int group, PackageSocket & s) = 0;
 	virtual void restrictRun(std::string name, bool entryAccess) = 0;
 	virtual void unrestrictRun(std::string name) = 0;
 	virtual int run(std::string name, 

@@ -60,20 +60,17 @@ class DestroyHandler: public CommandHandler {
 public:
 	std::string name() const {return "destroy";}
 	void handle(PackageSocket & s) {
-		char buff[1024];
-		size_t x=1024;
-		while(!s.read(buff,x));
+		std::string name = s.readString(1023);
 		bool clean=true;
-		for(size_t i=0; i < x; ++i) 
-			if(buff[i] == '.' || buff[i] == '/' || buff[i] == '\'' 
-			   || buff[i] == '$' || buff[i] == '#') clean=false;
+		for(size_t i=0; i < name.size(); ++i) 
+			if(name[i] == '.' || name[i] == '/' || name[i] == '\'' 
+			   || name[i] == '$' || name[i] == '#') clean=false;
 		if(!clean) {
 			s.write("invalid name");
 			return;
 		}
-		buff[x] = '\0';
 		char buff2[1124];
-		sprintf(buff2,"rm -rf 'entries/%s'",buff);
+		sprintf(buff2,"rm -rf 'entries/%s'",name.c_str());
 		system(buff2);
 		s.write("success");
 	};
