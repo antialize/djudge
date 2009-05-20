@@ -21,4 +21,5 @@ include_directories(${Boost_INCLUDE_DIRS})
 include_directories(common)
 add_subdirectory(common bin)
 add_subdirectory(drone bin)
+add_subdirectory(overlord bin)
 

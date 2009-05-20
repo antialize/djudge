@@ -28,6 +28,10 @@ using namespace std;
 
 class CCLangSupport: public LangSupport {
 public:
+	std::string sourceName(std::string base) {return base+".cc";}
+	int removeSource(std::string base) {return unlink((base+".cc").c_str());}
+	int removeBinary(std::string base) {return unlink((base+".out").c_str());}
+
 	bool hasSource(std::string name) {
 		string path=name+".cc";
 		return access(path.c_str(),R_OK) == 0;

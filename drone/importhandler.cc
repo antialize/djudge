@@ -105,20 +105,20 @@ public:
 			for(langByRank_t::iterator i = langByRank.begin(); 
 				i != langByRank.end(); ++i)  {
 				LangSupport * l = i->second;
-				if(!l->hasSource("inputGenerator")) continue;
-				if(!l->compile("inputGenerator", droneUser, droneGroup, s)) return;
+				if(!l->hasSource("inputgenerator")) continue;
+				if(!l->compile("inputgenerator", droneUser, droneGroup, s)) return;
 				float time=60;
-				l->restrictRun("inputGenerator", true);
-				int r = l->run("inputGenerator", 0, 1, 2, 100 * 1024 * 1024, 0, time, droneUser, droneGroup);
+				l->restrictRun("inputgenerator", true);
+				int r = l->run("inputgenerator", 0, 1, 2, 100 * 1024 * 1024, 0, time, droneUser, droneGroup);
 				if(r != RUN_SUCCESS) {
 					char buff[1024];
 					sprintf(buff,"%d",r);
 					s.write(buff);
-					sprintf(buff,"%s inputGenerator failed",l->name().c_str());
+					sprintf(buff,"%s inputgenerator failed",l->name().c_str());
 					s.write(buff);
 					return;
 				}
-				l->unrestrictRun("inputGenerator");
+				l->unrestrictRun("inputgenerator");
 			}
 		
 			printf("Generating outputs and times\n");

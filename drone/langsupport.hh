@@ -24,6 +24,9 @@
 
 class LangSupport {
 public:
+	virtual std::string sourceName(std::string base) = 0;
+	virtual int removeSource(std::string base) = 0;
+	virtual int removeBinary(std::string base) = 0;
 	virtual bool hasSource(std::string name) = 0;
 	virtual bool compile(std::string name, int user, int group, PackageSocket & s) = 0;
 	virtual void restrictRun(std::string name, bool entryAccess) = 0;

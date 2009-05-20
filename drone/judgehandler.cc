@@ -32,6 +32,8 @@ using namespace std;
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <unistd.h>
+#include <stdlib.h>
 
 class JudgeHandler: public CommandHandler {
 public:
@@ -42,10 +44,11 @@ public:
 			string entry = s.readString(1024);
 			string language = s.readString(1024);
 			string verbosity = s.readString(1024);
-			char tmpnam[42];
-			strcpy(tmpnam,"/tmp/djudge_XXXXXXXX");
-			int fd = mkstemp(tmpnam);
-			if(fd == -1) THROW_PE("mkstemp() failed");
+			if(langByName.count(language) == 0) THROW_E("Invalid language");
+			LangSupport * l = langByName[language];
+			string base = tempnam("/tmp","djudge");
+			int fd = open(l->sourceName(base).c_str(), O_CREAT | O_TRUNC | O_WRONLY, S_IRUSR | S_IWUSR);
+			if(fd == -1) THROW_PE("open() failed");
 			if(fchown(fd, nobodyUser, nobodyGroup) == -1) THROW_PE("fchown() failed");
 			size_t n=1024*10;
 			char buff[n];
@@ -53,22 +56,18 @@ public:
 				if(write(fd,buff,n) != (int)n) 
 					THROW_PE("write() failed");
 			close(fd);
-			if(langByName.count(language) == 0) THROW_E("Invalid language");
-			LangSupport * l = langByName[language];
-			
-			if(!l->compile(tmpnam, nobodyUser ,nobodyGroup,s)) return;
-
+			bool r = l->compile(base, nobodyUser ,nobodyGroup,s);
+			l->removeSource(base);
+			if(r == false) return;
 			string dir=entriesPath + "/" + entry;
 			if(chdir(dir.c_str()) == -1) THROW_PE("chdir() failed");
  			DIR * d = opendir("inputs");
 			if(d == NULL)  {
 				s.write(XSTR(RUN_INVALID_ENTRY));
 				s.write("");
-				unlink(tmpnam);
+				l->removeBinary(base);
 				return;
 			}
-
-
 			while(struct dirent * e = readdir(d)) {
 				if(e->d_name[0] == '.' || e->d_name[0] == '\0') continue;
 				char input[1024];
@@ -118,20 +117,11 @@ public:
 					close(p[0]);
 					//run(in1,p[1],2);
 				}
-
-				
-				
-				
-				
-
 				//Create the judging chain
 			}
-			
-			
 			//Open entity
 			//Run instances
 			//Calculate correct answer
-
 			s.write(XSTR(RUN_SUCCESS));
 		} catch(CommonException & e) {
 			s.write(XSTR(RUN_INTERNAL_ERROR));
@@ -139,4 +129,4 @@ public:
 		}
 	}
 };
-  
+CommandHandler * produceJudgeHandler() {return new JudgeHandler();}  

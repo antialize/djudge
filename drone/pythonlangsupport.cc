@@ -23,6 +23,10 @@ using namespace std;
 
 class PythonLangSupport: public LangSupport {
 public:
+	std::string sourceName(std::string base) {return base+".py";}
+	int removeSource(std::string base) {return 0;}
+	int removeBinary(std::string base) {return unlink((base+".py").c_str());}
+
 	bool hasSource(std::string name) {
 		string path=name+".py";
 		return access(path.c_str(),R_OK) == 0;

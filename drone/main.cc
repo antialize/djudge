@@ -112,7 +112,6 @@ int main(int argc, char ** argv) {
 		cerr << cmdline << endl;
 		exit(1);
 	}
-
 	struct passwd * p = getpwnam(droneUserName.c_str());
 	if(p == NULL) THROW_PE("getpwnam(%s) failed:", droneUserName.c_str());
 	droneUser = p->pw_uid;
@@ -130,5 +129,6 @@ int main(int argc, char ** argv) {
     r.addHandler(produceListHandler());
     r.addHandler(produceImportHandler());
     r.addHandler(produceDestroyHandler());
+	r.addHandler(produceJudgeHandler());
     r.run(host.c_str(),port);
 }

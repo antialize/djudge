@@ -40,6 +40,11 @@ The following is an outline of the derectory structure of an entry, and a docume
    Python judge implementation, see [[specialjudge.cc]]
 ** specialjudge.py
    Java judge implemenation, see [[specialjudge.cc]].
+** inputgenerator.cc
+** inputgenerator.py
+   Python input generator, see [[inputgenerator.cc]]
+** inputgenerator.java
+   Java input generator, see [[inputgenerator.cc]]
 **config
    Simple configuration file, in .ini file format
    - timelimit    integer in seconds
