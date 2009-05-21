@@ -18,6 +18,7 @@
  */
 #ifndef __results_hh__
 #define __results_hh__
+#include <string>
 
 #define STR(x)   #x
 #define XSTR(x)  STR(x)
@@ -33,4 +34,7 @@
 #define RUN_COMPILATION_TIME_LIMIT_EXCEEDED 8
 #define RUN_COMPILATION_ERROR      9
 #define RUN_INVALID_ENTRY          10
+
+std::string resultMessage(int res);
+
 #endif //__results_hh__
