@@ -24,9 +24,6 @@ namespace po = boost::program_options;
 
 using namespace std;
 
-struct Job {
-};
-
 class Drone {
 private:
 	std::vector<Job *> jobs;
