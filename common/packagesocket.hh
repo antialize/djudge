@@ -23,21 +23,24 @@
 
 class PackageSocket {
 private:
-    const size_t max_buff_size;
-    int sock;
-    char * read_buff;
-    size_t read_buff_size;
-    size_t read_buff_used;
-    char * write_buff;
-    size_t write_buff_used;
-    bool read_escape;
-    bool eot;
+	const size_t max_buff_size;
+	int sock;
+	char * read_buff;
+	size_t read_buff_size;
+	size_t read_buff_used;
+	char * write_buff;
+	size_t write_buff_used;
+	bool read_escape;
+	bool eot;
 public:
-    PackageSocket(int sock);
-    ~PackageSocket();
-    bool read(char * b, size_t & len);
+	PackageSocket(int sock);
+	~PackageSocket();
+	bool read(char * b, size_t & len);
 	std::string readString(int maxlen);
-    void write(const char * b, size_t len=0, bool end_of_package=true);
-    bool canRead();
+	void write(const char * b, size_t len=0, bool end_of_package=true);
+	void write(const std::string, bool end_of_package=true);
+	void writeFD(int fd, bool end_of_package=true);
+	void readFD(int fd, size_t maxsize=0);
+	bool canRead();
 };
 #endif //__packagesocket_hh__

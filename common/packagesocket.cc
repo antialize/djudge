@@ -117,3 +117,36 @@ void PackageSocket::write(const char *b, size_t len, bool end_of_package) {
 		write_buff_used=0;
 	}
 }
+
+void PackageSocket::write(const std::string x, bool end_of_package) {
+	write(x.c_str(), x.length(), end_of_package);
+}
+
+void PackageSocket::writeFD(int fd, bool end_of_package) {
+	size_t l = 1024*128;
+	char buff[l];
+	while(true) {
+		int r=::read(fd, buff,l);
+		if(r == -1) THROW_PE("read() failed");
+		write(buff,r,false);
+		if(r == 0) break;
+	} 
+	if(end_of_package) write(buff, 0, true);
+}
+
+void PackageSocket::readFD(int fd, size_t maxsize) {
+	size_t l = 1024*128;
+	char buff[l];
+	size_t size=0;
+	while(true) {
+		size_t ll=l;
+		bool r=read(buff,ll);
+		for(size_t s=0; s<ll;) {
+			int w=::write(fd, buff, ll);
+			if(w == -1) THROW_PE("write() failed");
+			s+=w;
+		}
+		size += ll;
+		if(r || size >= maxsize) break;
+	}
+}
