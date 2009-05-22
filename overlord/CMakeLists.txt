@@ -13,5 +13,5 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
-add_executable(overload main.cc)
-target_link_libraries(overload common ${Boost_LIBRARIES})
+add_executable(overlord main.cc client.cc drone.cc)
+target_link_libraries(overlord common ${Boost_LIBRARIES})

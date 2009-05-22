@@ -16,14 +16,37 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+#include <pthread.h>
+#include "packagesocket.hh"
+#include <map>
+
 class Client {
 public:
-	virtual void addResponce(uint64_t jobid, int code, const std::string & message);
-	virtual void postCommandHook() = {};
+	void run_(PackageSocket & s);
 };
 
-
-class SyncClient {
+class ASyncClient: public Client {
 public:
+	static pthread_mutex_t cookieMapMutex;
+	static std::map<std::string, ASyncClient *> cookieMap;
 	
+	static void run(PackageSocket & s);
+	static void init();
 };
+
+class SyncClient: public Client {
+public:
+	static void run(PackageSocket & s);
+};
+
+// class Client {
+// public:
+// 	virtual void addResponce(uint64_t jobid, int code, const std::string & message);
+// 	virtual void postCommandHook() = {};
+// };
+
+
+// class SyncClient {
+// public:
+	
+// };
