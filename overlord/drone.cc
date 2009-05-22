@@ -17,6 +17,56 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "drone.hh"
+#include <pthread.h>
+#include "error.hh"
+
+Drone::Drone() {
+	pthread_mutex_init(&jobQueueLock, NULL);
+	pthread_cond_init(&jobQueueCond, NULL);
+}
+
+Drone::~Drone() {
+	pthread_cond_destroy(&jobQueueCond);
+	pthread_mutex_destroy(&jobQueueLock);
+}
+
+void Drone::addJob(Job * job) {
+	pthread_mutex_lock(&jobQueueLock);
+	jobQueue.push_back(job);
+	pthread_cond_signal(&jobQueueCond);
+	pthread_mutex_unlock(&jobQueueLock);
+}
+
+void Drone::run_(PackageSocket & s) {
+	pthread_mutex_lock(&jobQueueLock);
+	while(true) {
+		struct timespec t;
+		clock_gettime(CLOCK_REALTIME, &t);
+		t.tv_sec += 60;
+		pthread_cond_timedwait(&jobQueueCond, &jobQueueLock, &t);
+		if(jobQueue.empty()) {
+			pthread_mutex_unlock(&jobQueueLock);
+			s.write("ping");
+			if(s.readString(1024) != "pong") THROW_E("Did not send pong");
+			pthread_mutex_lock(&jobQueueLock);
+			continue;
+		}
+		Job * j = jobQueue.back();
+		jobQueue.pop_back();
+		pthread_mutex_unlock(&jobQueueLock);
+		try {
+			//Forward the job					
+		} catch(std::exception & e) {
+			JobManager::addJob(j);
+			throw e;
+		}
+		pthread_mutex_lock(&jobQueueLock);
+		if(jobQueue.empty()) JobManager::freeDrone(this);
+	}
+	pthread_mutex_unlock(&jobQueueLock);
+}
 
 void Drone::run(PackageSocket & s) {
+	Drone d;
+	d.run_(s);
 }

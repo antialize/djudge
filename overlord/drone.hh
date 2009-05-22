@@ -18,10 +18,21 @@
  */
 #ifndef __drone_hh__
 #define __drone_hh__
+
+#include "jobmanager.hh"
 #include "packagesocket.hh"
+#include <pthread.h>
 
 class Drone {
+private:
+	pthread_mutex_t jobQueueLock;
+	pthread_cond_t jobQueueCond;
+	std::deque<Job *> jobQueue;
 public:
+	Drone();
+	~Drone();
+	void addJob(Job * job);
+	void run_(PackageSocket & s); 
 	static void run(PackageSocket & s);
 };
 #endif //__drone_hh__

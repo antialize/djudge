@@ -35,45 +35,6 @@
 namespace po = boost::program_options;
 using namespace std;
 
-// class Drone {
-// private:
-// 	std::vector<Job *> jobs;
-// 	pthread_cond_t not_empty;
-// 	pthread_mutex_t mutex;
-// 	PackageSocket s;
-// 	void run() {
-// 		try {
-// 			while(true) {
-// 				struct timespec t;
-// 				clock_gettime(CLOCK_REALTIME, &t);
-// 				t.tv_sec += 5;
-// 				pthread_cond_timedwait(&not_empty, &mutex, &t);
-// 				if(jobs.empty()) {
-// 					pthread_mutex_unlock(&mutex);
-// 					s.write("ping");
-// 					if(s.readString(1024) != "pong") THROW_E("Did not send pong");
-// 					pthread_mutex_lock(&mutex);
-// 					continue;
-// 				}
-// 				Job * j = jobs.back();
-// 				jobs.pop_back();
-// 				pthread_mutex_unlock(&mutex);
-// 				try {
-// 					//Forward the job					
-// 				} catch(std::exception & e) {
-// 					pthread_mutex_lock(&mutex);
-// 					jobs.push_back(j);
-// 					pthread_mutex_unlock(&mutex);
-// 					throw e;
-// 				}
-// 				pthread_mutex_lock(&mutex);
-// 			}
-// 		} catch(CommonException & e) {
-// 			//Destroy drone here
-// 		}
-// 	}
-// };
-
 int s;
 void handler(int) {
 	cerr << "Overlord Parachute Deployed" << endl;
