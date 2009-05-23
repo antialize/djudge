@@ -20,8 +20,6 @@
 #include "drone.hh"
 #include "error.hh"
 #include "jobmanager.hh"
-#include <dirent.h>
-#include <sys/types.h>
 using namespace std;
 
 pthread_mutex_t JobManager::mutex;
