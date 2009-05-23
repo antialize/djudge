@@ -80,7 +80,7 @@ bool PackageSocket::read(char * b, size_t & len) {
 std::string PackageSocket::readString(int maxlen) {
 	char buff[maxlen+1];
 	size_t x=1023;
-	while(!read(buff,x)) {};
+	while(canRead() && !read(buff,x)) {};
 	buff[x] = '\0';
 	return buff;
 }

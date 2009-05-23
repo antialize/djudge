@@ -34,6 +34,7 @@
 #define RUN_COMPILATION_TIME_LIMIT_EXCEEDED 8
 #define RUN_COMPILATION_ERROR      9
 #define RUN_INVALID_ENTRY          10
+#define RUN_BAD_COMMAND            11
 
 std::string resultMessage(int res);
 

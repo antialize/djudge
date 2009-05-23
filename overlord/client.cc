@@ -17,33 +17,76 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "client.hh"
+#include "jobmanager.hh"
+#include "error.hh"
+#include "results.hh"
+#include <iostream>
+#include <stdlib.h>
 using namespace std;
-// class SyncClient: public client {
-// public:
-// 	int code;
-// 	std::string msg;
-// 	pthread_cond_t cont;
-// 	pthread_mutex_t mutex;
-// 	virtual void addResponce(uint64_t jobid, int code, const std::string & message) {
-// 		pthread_mutex_lock(&mutex);
-// 		this->code = code;
-// 		this->msg = message;
-// 		ptheard_mutex_unlock(&mutex);
-// 	};
-	
-// 	virtual void postCommandHook() {
-// 		pthread_mutex_lock(&mutex);
-// 		if(code == -1) pthread_cond_wait(&cond,mutex);
-// 		char buff[12];
-// 		sprintf(buff,"%d",code);
-// 		ss.write(buff);
-// 		ss.write(msg);
-// 		ptheard_mutex_unlock(&mutex);
-// 	}
-// };
-
 pthread_mutex_t ASyncClient::cookieMapMutex;
 std::map<std::string, ASyncClient *> ASyncClient::cookieMap;
+
+bool Client::handleCommand(const std::string & cmd, PackageSocket & s) {
+	if(cmd == "status") {
+		s.write(XSTR(RUN_SUCCESS));
+		s.write("Up and runnig");
+	} else if(cmd == "" || cmd == "leave")
+		return false;
+	else if(cmd == "identify") {
+		string name=s.readString(1024);
+		string password=s.readString(1024);
+		s.write(XSTR(RUN_SUCCESS));
+		s.write("success");
+	} else if(cmd == "dispose") {
+		string name=s.readString(1024);
+		uint64_t id = JobManager::addJob(dispose,this,name);
+		jobHook(s,id);
+	} else if(cmd == "push") {
+		string name=s.readString(1024);
+		cout << "name: " << name << endl;
+		JobManager::addJob(push,this,name);
+		s.write(XSTR(RUN_SUCCESS));
+		s.write("Will push when possible");
+	} else if(cmd == "judge") {
+		string name=s.readString(1024);
+		string lang=s.readString(128);
+		char buff[64];
+		strcpy(buff,"/tmp/codeXXXXXX");
+		int f = mkstemp(buff);
+		s.readFD(f);
+		uint64_t id = JobManager::addJob(judge,this,name,lang,buff);
+		jobHook(s,id);
+	} else if(cmd == "import") {
+		string name=s.readString(1024);
+		char buff[64];
+		strcpy(buff,"/tmp/entryXXXXXX");
+		int f = mkstemp(buff);
+		s.readFD(f);
+		uint64_t id = JobManager::addJob(judge,this,name,buff);
+		jobHook(s,id);
+	} else {
+		printf("hello\n");
+		s.write(XSTR(RUN_BAD_COMMAND));
+		s.write("Unknown command "+cmd);
+	}
+	return true;
+}
+
+void Client::run_(PackageSocket & s) {
+	while(s.canRead()) {
+		string cmd = s.readString(128);
+		cout << cmd << endl;
+		if(!handleCommand(cmd,s)) continue;
+	}
+}
+
+ASyncClient::ASyncClient() {
+	pthread_mutex_init(&resultMutex,NULL);
+}
+
+ASyncClient::~ASyncClient() {
+	pthread_mutex_destroy(&resultMutex);
+}
 
 void ASyncClient::run(PackageSocket & s) {
 	string cookie = s.readString(128);
@@ -62,12 +105,72 @@ void ASyncClient::init() {
 	pthread_mutex_init(&cookieMapMutex, NULL);
 }
 
+void ASyncClient::jobHook(PackageSocket & s, uint64_t jobid) {
+	char buff[32];
+	s.write(XSTR(RUN_SUCCESS));
+	sprintf(buff,"%ld",jobid);
+	s.write(buff);
+}
+
+void ASyncClient::jobDone(Job * j) {
+	pthread_mutex_lock(&resultMutex);
+	results.push_back(j);
+	pthread_mutex_unlock(&resultMutex);
+}
+
+bool ASyncClient::handleCommand(const std::string & cmd, PackageSocket & s) {
+	if(cmd == "pullResults") {
+		pthread_mutex_lock(&resultMutex);
+		for(size_t i=0; i < results.size(); ++i) {
+			char buff[128];
+			sprintf(buff,"%ld",results[i]->id);
+			s.write(buff);
+			sprintf(buff,"%d",results[i]->result);
+			s.write(buff);
+			s.write(results[i]->msg);
+			delete(results[i]);
+		}
+		results.clear();
+		s.write("");
+		pthread_mutex_unlock(&resultMutex);
+		return true;
+	} else
+		return Client::handleCommand(cmd,s);
+}
+
+SyncClient::SyncClient() {
+	pthread_mutex_init(&resultMutex,NULL);
+	pthread_cond_init(&resultCond,NULL);
+	job=NULL;
+}
+
+SyncClient::~SyncClient() {
+	pthread_mutex_destroy(&resultMutex);
+	pthread_cond_destroy(&resultCond);
+}
+
 void SyncClient::run(PackageSocket & s) {
 	SyncClient c;
 	c.run_(s);
 }
 
-void Client::run_(PackageSocket & s) {
-	//Foo Bar
+void SyncClient::jobHook(PackageSocket & s, uint64_t) {
+	pthread_mutex_lock(&resultMutex);
+	while(job == NULL) pthread_cond_wait(&resultCond,&resultMutex);
+	Job * j=job;
+	job=NULL;
+	pthread_mutex_unlock(&resultMutex);
+	char buff[32];
+	sprintf(buff,"%d",j->result);
+	s.write(buff);
+	s.write(j->msg);
+	delete j;
+}
+
+void SyncClient::jobDone(Job * j) {
+	pthread_mutex_lock(&resultMutex);
+	job=j;
+	pthread_cond_signal(&resultCond);
+	pthread_mutex_unlock(&resultMutex);
 }
 

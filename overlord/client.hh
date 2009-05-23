@@ -19,34 +19,42 @@
 #include <pthread.h>
 #include "packagesocket.hh"
 #include <map>
+#include <vector>
+class Job;
 
 class Client {
 public:
+	virtual void jobHook(PackageSocket & s, uint64_t jobid) = 0;
+	virtual void jobDone(Job * j) = 0;
+	virtual bool handleCommand(const std::string & cmd, PackageSocket & s);
 	void run_(PackageSocket & s);
 };
 
 class ASyncClient: public Client {
-public:
+private:
 	static pthread_mutex_t cookieMapMutex;
 	static std::map<std::string, ASyncClient *> cookieMap;
-	
+	pthread_mutex_t resultMutex;
+	std::vector<Job*> results;
+public:
+	ASyncClient();
+	~ASyncClient();
 	static void run(PackageSocket & s);
 	static void init();
+	virtual void jobHook(PackageSocket & s, uint64_t jobid);
+	virtual void jobDone(Job * j);
+	virtual bool handleCommand(const std::string & cmd, PackageSocket & s);
 };
 
 class SyncClient: public Client {
+private:
+	pthread_mutex_t resultMutex;
+	pthread_cond_t resultCond;
+	Job * job;
 public:
+	SyncClient();
+	~SyncClient();
 	static void run(PackageSocket & s);
+	virtual void jobHook(PackageSocket & s, uint64_t jobid);
+	virtual void jobDone(Job * j);
 };
-
-// class Client {
-// public:
-// 	virtual void addResponce(uint64_t jobid, int code, const std::string & message);
-// 	virtual void postCommandHook() = {};
-// };
-
-
-// class SyncClient {
-// public:
-	
-// };

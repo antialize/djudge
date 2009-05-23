@@ -34,6 +34,7 @@
 #include <unistd.h>
 #include <cctype>
 #include <algorithm>
+#include "results.hh"
 
 namespace po = boost::program_options;
 using namespace std;
@@ -64,8 +65,9 @@ int main(int argc, char ** argv) {
 		("entry,e", po::value<string>(&entry), "")
 		("input,i", po::value<string>(&input), "");
 	pd.add("command",1);
-	pd.add("input",2);
-	pd.add("language",3);
+	pd.add("entry",2);
+	pd.add("input",3);
+	pd.add("language",4);
 	try {
 		po::variables_map vm;
 		po::store(po::command_line_parser(argc, argv).
@@ -77,7 +79,7 @@ int main(int argc, char ** argv) {
 		   command != "push" && 
 		   command != "status" &&
 		   command != "judge") throw po::validation_error("invalid command");
-		if(command != "status" && command != "import" && vm.count("entry")) throw po::validation_error("entry not specified");
+		if(command != "status" && command != "import" && vm.count("entry")==0) throw po::validation_error("entry not specified");
 		if(command == "import" && input=="") input=entry;
 		if(command == "import" && input=="") throw po::validation_error("No input specified");
 		if(vm.count("help")) {
@@ -127,23 +129,27 @@ int main(int argc, char ** argv) {
 			ss.write("identify");
 			ss.write(user.c_str());
 			ss.write(password.c_str());
+			string x = ss.readString(32);
 			string r = ss.readString(1024);
-			if(r != "success") {
+			if(x != XSTR(RUN_SUCCESS)) {
 				cerr << "Username or password invalid: " << r << endl;
 				exit(1);
 			}
 		}
 		if(command == "status") {
 			ss.write("status");
-			cout << ss.readString(10) << endl << ss.readString(1024*128) << endl;
+			string a = ss.readString(10); 
+			cout << a << endl << ss.readString(1024*128) << endl;
 		} else if(command == "dispose") {
 			ss.write("dispose");
 			ss.write(entry);
-			cout << ss.readString(10) << endl << ss.readString(1024) << endl;
+			string a = ss.readString(10); 
+			cout << a << endl << ss.readString(1024) << endl;
 		} else if(command == "push") {
 			ss.write("push");
 			ss.write(entry);
-			cout << ss.readString(10) << endl << ss.readString(1024) << endl;
+			string a = ss.readString(10);
+			cout << a << endl << ss.readString(1024) << endl;
 		} else if(command == "judge") {
 			if(language == "") {
 				size_t r = input.rfind('.');
@@ -163,7 +169,8 @@ int main(int argc, char ** argv) {
 			if(f == -1) THROW_PE("open() failed");
 			ss.writeFD(f);
 			close(f);
-			cout << ss.readString(10) << endl << ss.readString(1024*128) << endl;
+			string a = ss.readString(10); 
+			cout << a  << endl << ss.readString(1024*128) << endl;
 		} else if(command == "import") {
 			size_t l = input.rfind('/');
 			size_t r = input.rfind('.');
@@ -179,9 +186,11 @@ int main(int argc, char ** argv) {
 			ss.write(entry);
 			ss.writeFD(f);
 			close(f);
-			cout << ss.readString(10) << endl << ss.readString(1024*128) << endl;
+			string a = ss.readString(10); 
+			cout << a << endl << ss.readString(1024*128) << endl;
 		}
 		ss.write("leave");
+		close(s);
 	} catch(std::exception & e) {
 		cerr << "Exception: " << e.what() << endl;
 	};

@@ -63,19 +63,19 @@ void* dispatch(void * _) {
 	} catch(std::exception& e) {
 		cerr << "Exception: " << e.what() << endl;
 	}
-	close(s);
+	close(cs);
 	return NULL;
 }
 
 void runServer(int port) {
-	signal(SIGHUP, handler);
-	signal(SIGINT, handler);
-	signal(SIGQUIT, handler);
-	signal(SIGILL, handler);
-	signal(SIGABRT, handler);
-	signal(SIGFPE, handler);
-	signal(SIGSEGV, handler);
-	signal(SIGPIPE, handler);
+// 	signal(SIGHUP, handler);
+// 	signal(SIGINT, handler);
+// 	signal(SIGQUIT, handler);
+// 	signal(SIGILL, handler);
+// 	signal(SIGABRT, handler);
+// 	signal(SIGFPE, handler);
+// 	signal(SIGSEGV, handler);
+// 	signal(SIGPIPE, handler);
 	signal(SIGTERM, handler);
 	sockaddr_in a;
 	s = socket(AF_INET,SOCK_STREAM,0);
@@ -92,18 +92,14 @@ void runServer(int port) {
 	}
 };
 
-
-
-/*class Server {
-private:
-	std::vector<Drone *> freeDrones;
-	};*/
-
+void * jobManagerMain(void *) {
+	JobManager::run();
+	return NULL;
+}
 
 int main(int argc, char ** argv) {
-	int port;
+	int port=13049;
 	po::options_description cmdline("Drone overload");
-
 	cmdline.add_options() 
 		("help,h", "Display the message.")
 		("port,p", po::value<int>(&port), "The port to bind to.");
@@ -120,5 +116,10 @@ int main(int argc, char ** argv) {
 		cerr << cmdline << endl;
 		exit(1);
 	}
-	runServer(1234);
-};
+	ASyncClient::init();
+	JobManager::init();
+	pthread_t thread;
+	pthread_create(&thread,NULL, jobManagerMain, NULL);
+	runServer(port);
+	return 0;
+}
