@@ -16,27 +16,15 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#ifndef __results_hh__
-#define __results_hh__
+#ifndef __globals_hh__
+#define __globals_hh__
+
 #include <string>
+#include <set>
+#include <pthread.h>
 
-#define STR(x)   #x
-#define XSTR(x)  STR(x)
+extern std::set<std::string> entries;
+extern pthread_mutex_t entriesMutex;
+extern std::string entriesPath;
 
-#define RUN_SUCCESS                0
-#define RUN_EXIT_NOT_ZERO          1
-#define RUN_PRESENTATION_ERROR     2
-#define RUN_TIME_LIMIT_EXCEEDED    3
-#define RUN_ABNORMAL_TERMINATION   4
-#define RUM_RUNTIME_ERROR          5
-#define RUN_OUTPUT_LIMIT_EXCEEDED  6
-#define RUN_INTERNAL_ERROR         7
-#define RUN_COMPILATION_TIME_LIMIT_EXCEEDED 8
-#define RUN_COMPILATION_ERROR      9
-#define RUN_INVALID_ENTRY          10
-#define RUN_BAD_COMMAND            11
-#define RUN_PENDING                12
-
-std::string resultMessage(int res);
-
-#endif //__results_hh__
+#endif //__globals_hh__

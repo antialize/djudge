@@ -17,8 +17,9 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "client.hh"
-#include "jobmanager.hh"
 #include "error.hh"
+#include "globals.hh"
+#include "jobmanager.hh"
 #include "results.hh"
 #include <iostream>
 #include <stdlib.h>
@@ -37,13 +38,27 @@ bool Client::handleCommand(const std::string & cmd, PackageSocket & s) {
 		string password=s.readString(1024);
 		s.write(XSTR(RUN_SUCCESS));
 		s.write("success");
+	} else if(cmd == "list") {
+		pthread_mutex_lock(&entriesMutex);
+		std::set<std::string> e(entries.begin(),entries.end());
+		pthread_mutex_unlock(&entriesMutex);
+		for(std::set<std::string>::iterator i=e.begin(); i != e.end(); ++i)
+			s.write((*i));
+		s.write("");
 	} else if(cmd == "dispose") {
 		string name=s.readString(1024);
-		uint64_t id = JobManager::addJob(dispose,this,name);
-		jobHook(s,id);
+		pthread_mutex_lock(&entriesMutex);
+		bool found=entries.count(name)>0;
+		pthread_mutex_unlock(&entriesMutex);
+		if(found) {
+			uint64_t id = JobManager::addJob(dispose,this,name);
+			jobHook(s,id);
+		} else {
+			s.write(XSTR(RUN_INVALID_ENTRY));
+			s.write("The entry not found");
+		}
 	} else if(cmd == "push") {
 		string name=s.readString(1024);
-		cout << "name: " << name << endl;
 		JobManager::addJob(push,this,name);
 		s.write(XSTR(RUN_SUCCESS));
 		s.write("Will push when possible");
@@ -54,18 +69,37 @@ bool Client::handleCommand(const std::string & cmd, PackageSocket & s) {
 		strcpy(buff,"/tmp/codeXXXXXX");
 		int f = mkstemp(buff);
 		s.readFD(f);
-		uint64_t id = JobManager::addJob(judge,this,name,lang,buff);
-		jobHook(s,id);
+		close(f);
+		pthread_mutex_lock(&entriesMutex);
+		bool found=entries.count(name)>0;
+		pthread_mutex_unlock(&entriesMutex);
+		if(!found) {
+			s.write(XSTR(RUN_INVALID_ENTRY));
+			s.write("The entry not found");
+			unlink(buff);
+		} else {
+			uint64_t id = JobManager::addJob(judge,this,name,lang,buff);
+			jobHook(s,id);
+		}
 	} else if(cmd == "import") {
 		string name=s.readString(1024);
 		char buff[64];
-		strcpy(buff,"/tmp/entryXXXXXX");
+		strcpy(buff,(entriesPath+"/tmpXXXXXX").c_str());
 		int f = mkstemp(buff);
 		s.readFD(f);
-		uint64_t id = JobManager::addJob(judge,this,name,buff);
-		jobHook(s,id);
+		close(f);
+		pthread_mutex_lock(&entriesMutex);
+		bool found=entries.count(name)>0;
+		pthread_mutex_unlock(&entriesMutex);
+		if(found) {
+			s.write(XSTR(RUN_INVALID_ENTRY));
+			s.write("An entry with that name allredy exists");
+			unlink(buff);
+		} else {
+			uint64_t id = JobManager::addJob(judge,this,name,buff);
+			jobHook(s,id);
+		}
 	} else {
-		printf("hello\n");
 		s.write(XSTR(RUN_BAD_COMMAND));
 		s.write("Unknown command "+cmd);
 	}

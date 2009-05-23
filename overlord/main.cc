@@ -16,22 +16,26 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#include <boost/program_options.hpp>
-#include <iostream>
-#include "error.hh"
-#include "packagesocket.hh"
-#include "string.h"
-#include <fcntl.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <netdb.h>
-#include <unistd.h>
-#include <string>
-#include <arpa/inet.h>
-#include <signal.h>
 #include "client.hh"
 #include "drone.hh"
+#include "error.hh"
+#include "globals.hh"
+#include "packagesocket.hh"
+#include "string.h"
+#include <arpa/inet.h>
+#include <boost/program_options.hpp>
+#include <dirent.h>
+#include <fcntl.h>
+#include <iostream>
+#include <netdb.h>
+#include <netinet/in.h>
+#include <pthread.h>
+#include <signal.h>
+#include <string>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <sys/types.h>
+#include <unistd.h>
 namespace po = boost::program_options;
 using namespace std;
 
@@ -116,6 +120,17 @@ int main(int argc, char ** argv) {
 		cerr << cmdline << endl;
 		exit(1);
 	}
+
+	entriesPath="overlordEntries";
+	DIR * d = opendir(entriesPath.c_str());
+	if(d == NULL) THROW_PE("opendir()");
+	while(struct dirent * e=readdir(d)) {
+		if(e->d_name[0] == '.' || e->d_name[0] == '\0') continue;
+		entries.insert(e->d_name);
+	}
+	closedir(d);
+	pthread_mutex_init(&entriesMutex,NULL);
+
 	ASyncClient::init();
 	JobManager::init();
 	pthread_t thread;

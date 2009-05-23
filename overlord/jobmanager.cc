@@ -16,16 +16,20 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#include "jobmanager.hh"
-#include "drone.hh"
 #include "client.hh"
+#include "drone.hh"
+#include "error.hh"
+#include "jobmanager.hh"
+#include <dirent.h>
+#include <sys/types.h>
+using namespace std;
 
 pthread_mutex_t JobManager::mutex;
 pthread_cond_t JobManager::jobCond;
 pthread_cond_t JobManager::droneCond;
-std::deque<Drone *> JobManager::freeDrones;
-std::deque<Job *> JobManager::jobQueue;
-std::set<Drone *> JobManager::drones;
+deque<Drone *> JobManager::freeDrones;
+deque<Job *> JobManager::jobQueue;
+set<Drone *> JobManager::drones;
 uint64_t JobManager::idc;
 
 void JobManager::init() {

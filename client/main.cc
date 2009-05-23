@@ -60,14 +60,14 @@ int main(int argc, char ** argv) {
 		("port,p", po::value<int>(&port), "The port of the overlord to connect to")
 		("user,u", po::value<string>(&user), "The username for restricted functions")
 		("password,P", po::value<string>(&password), "The password for restricted functions")
-		("command,c", po::value<string>(&command), "The command to issue: dispose, import, push, status, judge")
+		("command,c", po::value<string>(&command), "The command to issue: dispose, import, push, status, judge, list")
 		("language,l", po::value<string>(&language), "The language of the program to be judged: cc, python, java")
 		("entry,e", po::value<string>(&entry), "")
 		("input,i", po::value<string>(&input), "");
 	pd.add("command",1);
 	pd.add("entry",2);
-	pd.add("input",3);
-	pd.add("language",4);
+	//pd.add("input",3);
+	//pd.add("language",4);
 	try {
 		po::variables_map vm;
 		po::store(po::command_line_parser(argc, argv).
@@ -78,8 +78,10 @@ int main(int argc, char ** argv) {
 		   command != "import" && 
 		   command != "push" && 
 		   command != "status" &&
+		   command != "list" &&
 		   command != "judge") throw po::validation_error("invalid command");
-		if(command != "status" && command != "import" && vm.count("entry")==0) throw po::validation_error("entry not specified");
+		if(command != "list" && command != "status" && command != "import" && vm.count("entry")==0) 
+			throw po::validation_error("entry not specified");
 		if(command == "import" && input=="") input=entry;
 		if(command == "import" && input=="") throw po::validation_error("No input specified");
 		if(vm.count("help")) {
@@ -92,7 +94,7 @@ int main(int argc, char ** argv) {
 		exit(1);
 	}
 	try {
-		if(command != "judge") {
+		if(false) { //command != "judge" && command != "list") {
 			char buff[1024];
 			if(user == "" ) {
 				printf("username: ");
@@ -140,6 +142,13 @@ int main(int argc, char ** argv) {
 			ss.write("status");
 			string a = ss.readString(10); 
 			cout << a << endl << ss.readString(1024*128) << endl;
+		} else if(command == "list") {
+			ss.write("list");
+			while(true) {
+				string x = ss.readString(1024);
+				if(x == "") break;
+				cout << x << endl;
+			}
 		} else if(command == "dispose") {
 			ss.write("dispose");
 			ss.write(entry);
@@ -173,15 +182,16 @@ int main(int argc, char ** argv) {
 			cout << a  << endl << ss.readString(1024*128) << endl;
 		} else if(command == "import") {
 			size_t l = input.rfind('/');
-			size_t r = input.rfind('.');
 			if(l == string::npos) l=0;
-			if(l >= r) {
+			string x=input.substr(l+1);
+			size_t r = x.find('.');
+			if(r == string::npos) {
 				cerr << "Input seems to not be a tar file";
 				exit(1);
 			}
 			int f = open(input.c_str(),O_RDONLY);
 			if(f == -1) THROW_PE("open() failed");
-			entry = input.substr(l+1,r-l-1);
+			entry = x.substr(0,r);
 			ss.write("import");
 			ss.write(entry);
 			ss.writeFD(f);
