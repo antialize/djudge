@@ -16,9 +16,18 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+#include "client.hh"
 #include "drone.hh"
-#include <pthread.h>
 #include "error.hh"
+#include "globals.hh"
+#include "results.hh"
+#include <fcntl.h>
+#include <iostream>
+#include <pthread.h>
+#include <stdlib.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+using namespace std;
 
 Drone::Drone() {
 	pthread_mutex_init(&jobQueueLock, NULL);
@@ -39,22 +48,67 @@ void Drone::addJob(Job * job) {
 
 void Drone::run_(PackageSocket & s) {
 	pthread_mutex_lock(&jobQueueLock);
-	while(true) {
+	//Here we should read the drones entry list
+	while(s.canRead()) {
 		struct timespec t;
 		clock_gettime(CLOCK_REALTIME, &t);
-		t.tv_sec += 60;
+		t.tv_sec += 5;
 		pthread_cond_timedwait(&jobQueueCond, &jobQueueLock, &t);
 		if(jobQueue.empty()) {
+			if(!s.canRead()) break;
 			pthread_mutex_unlock(&jobQueueLock);
 			s.write("ping");
-			if(s.readString(1024) != "pong") THROW_E("Did not send pong");
+			bool p = (s.readString(1024) == "pong");
 			pthread_mutex_lock(&jobQueueLock);
+			if(!p) break;
 			continue;
 		}
 		Job * j = jobQueue.back();
+		cout << "Drone " << this << ": Processing job " << j->id << endl;
 		jobQueue.pop_back();
 		pthread_mutex_unlock(&jobQueueLock);
 		try {
+			switch(j->type) {
+			case import:
+			{
+				s.write("import");
+				s.write(j->a);
+				int fd = open(j->b.c_str(), O_RDONLY);
+				s.writeFD(fd);
+				string r = s.readString(10).c_str();
+				if(r == "" || !s.canRead()) THROW_E("drone died");
+				cout << "r: " << r << endl;
+				int res = atoi(r.c_str());
+				string msg = s.readString(1024*10);
+				cout << "message: " << msg << endl;
+				if(res == 0) {
+					string path=entriesPath+"/"+j->a;
+					if(rename(j->b.c_str(), path.c_str()) == -1) {
+						res=RUN_INTERNAL_ERROR;
+						msg="Overload: Rename failed";
+					}
+				}
+				if(res == 0) {
+					pthread_mutex_lock(&entriesMutex);
+					entries.insert(j->a);
+					pthread_mutex_unlock(&entriesMutex);
+				} else {
+					//unlink(j->b.c_str());
+				}
+				j->result = res;
+				j->msg = msg;
+			}
+				break;
+			case judge:
+			case push:
+			case dispose:
+			default:
+				j->result = RUN_INTERNAL_ERROR;
+				j->msg = "Not implemented";
+				cout << j->type << endl;
+			}
+			cout << "Drone " << this << ": Finished job " << j->id << "  with result " << j->result << endl;
+			if(j->client) j->client->jobDone(j);
 			//Forward the job					
 		} catch(std::exception & e) {
 			JobManager::addJob(j);
@@ -68,5 +122,12 @@ void Drone::run_(PackageSocket & s) {
 
 void Drone::run(PackageSocket & s) {
 	Drone d;
-	d.run_(s);
+	JobManager::registerDrone(&d);
+	try {
+		d.run_(s);
+	} catch(std::exception & e) {
+		JobManager::unregisterDrone(&d);
+		throw e;
+	}
+	JobManager::unregisterDrone(&d);
 }

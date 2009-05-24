@@ -55,8 +55,10 @@ public:
 	if(connect(s, (struct sockaddr *)&server_addr,  sizeof(struct sockaddr)) == -1)
 	    THROW_PE("connect() failed\n");
 	PackageSocket ss(s);
+	ss.write("drone");
+	if(ss.readString(10) != "success") THROW_E("invalid overlord responce");
 	while(ss.canRead()) {
-	    //No commant can be more then 1023 chars long
+	    //No command can be more then 1023 chars long
 		string command = ss.readString(1024);
 	    if(command == "quit") break;
 	    std::map<std::string, CommandHandler *>::iterator i = handlers.find(command);
@@ -72,11 +74,11 @@ void addLang(LangSupport * l) {
 }
 
 int main(int argc, char ** argv) {
-	int port;
-	std::string host;
-	std::string droneUserName;
-	std::string nobodyUserName;
-
+	int port=13049;
+	std::string host="127.0.0.1";
+	std::string droneUserName="drone";
+	std::string nobodyUserName="nobody";
+	
 	po::options_description common("");
 	common.add_options()
 		("port,p", po::value<int>(&port), "The port of the overlord to connect to.")
@@ -102,11 +104,11 @@ int main(int argc, char ** argv) {
 			cout << cmdline << endl;
 			exit(0);
 		}
-		if(vm.count("address") == 0) throw po::validation_error("address not specified.");
+		//if(vm.count("address") == 0) throw po::validation_error("address not specified.");
 		if(vm.count("proxyPath") == 0) throw po::validation_error("proxyPath not specified.");
 		if(vm.count("entriesPath") == 0) throw po::validation_error("entriesPath not specified.");
-		if(vm.count("droneUser") == 0) throw po::validation_error("droneUser not specified.");
-		if(vm.count("nobodyUser") == 0) throw po::validation_error("nobodyUser not specified.");
+		//if(vm.count("droneUser") == 0) throw po::validation_error("droneUser not specified.");
+		//if(vm.count("nobodyUser") == 0) throw po::validation_error("nobodyUser not specified.");
 	} catch(std::exception & e) {
 		cerr << "Argument error: " << e.what() << endl;
 		cerr << cmdline << endl;

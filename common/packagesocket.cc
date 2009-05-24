@@ -128,13 +128,14 @@ void PackageSocket::writeFD(int fd, bool end_of_package) {
 	while(true) {
 		int r=::read(fd, buff,l);
 		if(r == -1) THROW_PE("read() failed");
-		write(buff,r,false);
 		if(r == 0) break;
+		write(buff,r,false);
 	} 
-	if(end_of_package) write(buff, 0, true);
+	if(end_of_package) write("");
 }
 
-void PackageSocket::readFD(int fd, size_t maxsize) {
+#include <iostream>
+using namespace std;void PackageSocket::readFD(int fd, size_t maxsize) {
 	size_t l = 1024*128;
 	char buff[l];
 	size_t size=0;
@@ -142,7 +143,8 @@ void PackageSocket::readFD(int fd, size_t maxsize) {
 		size_t ll=l;
 		bool r=read(buff,ll);
 		for(size_t s=0; s<ll;) {
-			int w=::write(fd, buff, ll);
+			int w=::write(fd, buff+s, ll-s);
+			cout << ll << ">=" << w << endl;
 			if(w == -1) THROW_PE("write() failed");
 			s+=w;
 		}

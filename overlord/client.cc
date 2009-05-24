@@ -30,7 +30,12 @@ std::map<std::string, ASyncClient *> ASyncClient::cookieMap;
 bool Client::handleCommand(const std::string & cmd, PackageSocket & s) {
 	if(cmd == "status") {
 		s.write(XSTR(RUN_SUCCESS));
-		s.write("Up and runnig");
+		size_t a = JobManager::freeDrones.size();
+		size_t b = JobManager::jobQueue.size();
+		size_t c = JobManager::drones.size();
+		char buff[1023];
+		sprintf(buff,"The overlord is up and running\nDrones: %d\nFree: %d\nPending jobs: %d",(int)c,(int)a,(int)b);
+		s.write(buff);
 	} else if(cmd == "" || cmd == "leave")
 		return false;
 	else if(cmd == "identify") {
@@ -84,7 +89,7 @@ bool Client::handleCommand(const std::string & cmd, PackageSocket & s) {
 	} else if(cmd == "import") {
 		string name=s.readString(1024);
 		char buff[64];
-		strcpy(buff,(entriesPath+"/tmpXXXXXX").c_str());
+		strcpy(buff,(entriesPath+"/.tmpXXXXXX").c_str());
 		int f = mkstemp(buff);
 		s.readFD(f);
 		close(f);
@@ -96,7 +101,7 @@ bool Client::handleCommand(const std::string & cmd, PackageSocket & s) {
 			s.write("An entry with that name allredy exists");
 			unlink(buff);
 		} else {
-			uint64_t id = JobManager::addJob(judge,this,name,buff);
+			uint64_t id = JobManager::addJob(import,this,name,buff);
 			jobHook(s,id);
 		}
 	} else {
@@ -133,7 +138,6 @@ void ASyncClient::run(PackageSocket & s) {
 	pthread_mutex_unlock(&cookieMapMutex);
 	c->run_(s);
 }
-
 
 void ASyncClient::init() {
 	pthread_mutex_init(&cookieMapMutex, NULL);

@@ -17,21 +17,20 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "commandhandler.hh"
-#include <dirent.h>
-#include <sys/types.h>
-#include <sys/dir.h>
+#include "error.hh"
+#include "globals.hh"
+#include "langsupport.hh"
+#include "results.hh"
 #include <cstdio>
 #include <cstdlib>
-#include <sys/wait.h>
-#include "error.hh"
-#include "langsupport.hh"
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/stat.h>
+#include <dirent.h>
 #include <fcntl.h>
-#include "results.hh"
-#include "globals.hh"
-
+#include <iostream>
+#include <sys/dir.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
 //Opun import the following must be done
 //0. Extract the archive
 //1. Possible generate (additional) inputs
@@ -47,31 +46,45 @@ public:
 			//Read the name of the new entity
 			std::string name = s.readString(1024);
 			printf("==============> importing %s <==============\n",name.c_str());
+
+			pid_t r = fork();
+			if(r == 0) {
+				setregid(droneGroup, droneGroup);
+				setreuid(droneUser, droneUser);
+				mkdir(entriesPath.c_str(),0700);
+				if(chdir(entriesPath.c_str()) == -1) exit(1);
+				if(mkdir(name.c_str(),0700) == -1) exit(1);
+				if(chdir(name.c_str()) == -1) exit(1);
+				mkdir("inputs",0700);
+				mkdir("inputs",0700);
+				mkdir("outputs",0700);
+				mkdir("times",0700);
+				exit(0);
+			} 
+			int status;
+			if(r == -1) THROW_PE("fork() failed\n");
+			if(waitpid(r, &status, 0) == -1) THROW_PE("waitpid() failed\n");
+			if(!WIFEXITED(status) || WEXITSTATUS(status) != 0) THROW_E("Failed creating directory structure\n");
+			if(chdir(entriesPath.c_str()) == -1 ||
+			   chdir(name.c_str()) == -1) THROW_PE("chdir() failed\n");
+
 			//Extract the archive on the fly
 			int pipefd[2];
 			if(pipe(pipefd) == -1) THROW_PE("pipe() failed\n");
-			pid_t r = fork();
+			r = fork();
 			if(r == 0) {
 				close(pipefd[1]);
 				if(dup2(pipefd[0],0) == -1) {perror("dup2() failed"); exit(-1);}
 				setregid(droneGroup, droneGroup);
 				setreuid(droneUser,droneUser);
-				execlp("tar","tar","-xjvC","entries", NULL);
+				execlp("tar","tar","-xjvC",".", NULL);
 				perror("execlp() falied"); 
 				exit(-1);
 			}
 			if(r == -1) THROW_PE("fork() failed\n");
-			size_t l = 10240;
-			char buff[l];
 			close(pipefd[0]);
-			while(!s.read(buff,l)) {
-				if(write(pipefd[1], buff, l) != (int)l) 
-					THROW_PE("write failed");
-			}
-			if(write(pipefd[1], buff, l) != (int)l) 
-				THROW_PE("write failed");
+			s.readFD(pipefd[1]);
 			close(pipefd[1]);
-			int status;
 			if(waitpid(r, &status, 0) == -1) THROW_PE("waitpid() failed\n");
 			if(!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
 				s.write(XSTR(RUN_EXTRACT_ERROR));
@@ -81,26 +94,8 @@ public:
 				s.write(buff);
 				return;
 			}
-			if(chdir(entriesPath.c_str()) == -1 ||
-			   chdir(name.c_str()) == -1) {
-				s.write(XSTR(RUN_EXTRACT_ERROR));
-				s.write("Unable to cd into the supposed dir that was extracted");
-				return;
-			}
 			printf("Generating additional inputs\n");
 			//Generate additional inputs here
-			r = fork();
-			if(r == 0) {
-				setregid(droneGroup, droneGroup);
-				setreuid(droneUser, droneUser);
-				mkdir("inputs",0700);
-				mkdir("outputs",0700);
-				mkdir("times",0700);
-				exit(0);
-			} 
-			if(r == -1) THROW_PE("fork() failed\n");
-			if(waitpid(r, &status, 0) == -1) THROW_PE("waitpid() failed\n");
-			if(!WIFEXITED(status) || WEXITSTATUS(status) == 0) s.write("failed");
 
 			for(langByRank_t::iterator i = langByRank.begin(); 
 				i != langByRank.end(); ++i)  {
@@ -165,7 +160,9 @@ public:
 				closedir(d);
 			}
 			s.write(XSTR(RUN_SUCCESS));
+			s.write(name + " imported sucessfully");
 		} catch(CommonException & e) {
+			std::cerr << e.what();
 			s.write(XSTR(RUN_INTERNAL_ERROR));
 			s.write(e.what());
 		}

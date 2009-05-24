@@ -47,14 +47,16 @@ private:
 	static pthread_mutex_t mutex;
 	static pthread_cond_t jobCond;
 	static pthread_cond_t droneCond;
+public:
 	static std::deque<Drone *> freeDrones;
 	static std::deque<Job *> jobQueue;
 	static std::set<Drone *> drones;
-public:
 	static void init();
 	static uint64_t addJob(Job * j);
 	static uint64_t addJob(JobType type, Client * c, const std::string & payload1, const std::string & payload2="", const std::string & payload3="");  
 	static void freeDrone(Drone * d);
+	static void registerDrone(Drone *d);
+	static void unregisterDrone(Drone *d);
 	static void run();
 };
 

@@ -20,6 +20,7 @@
 #include "drone.hh"
 #include "error.hh"
 #include "jobmanager.hh"
+#include <iostream>
 using namespace std;
 
 pthread_mutex_t JobManager::mutex;
@@ -53,6 +54,7 @@ uint64_t JobManager::addJob(Job * i) {
 		}		
 		delete i;
 	} else {
+		cout << "JobManager: Added job " << i->id << " to the job queue" << endl;
 		jobQueue.push_back(i);
 		pthread_cond_signal(&jobCond);
 	}
@@ -74,6 +76,27 @@ uint64_t JobManager::addJob(JobType type, Client * client, const std::string & a
 	return addJob(j);
 }
 
+void JobManager::registerDrone(Drone *d) {
+	pthread_mutex_lock(&mutex);
+	drones.insert(d);
+	freeDrones.push_back(d);
+	pthread_cond_signal(&droneCond);
+	pthread_mutex_unlock(&mutex);
+}
+
+
+void JobManager::unregisterDrone(Drone *d) {
+	pthread_mutex_lock(&mutex);
+	drones.erase(d);
+	for(std::deque<Drone *>::iterator i = freeDrones.begin(); i != freeDrones.end(); ++i) {
+		if(*i != d) continue;
+		freeDrones.erase(i);
+		break;
+	}
+	pthread_mutex_unlock(&mutex);
+}
+
+
 void JobManager::freeDrone(Drone * d) {
 	pthread_mutex_lock(&mutex);
 	freeDrones.push_back(d);
@@ -91,6 +114,7 @@ void JobManager::run() {
 		Drone * d = freeDrones.front();
 		freeDrones.pop_front();
 		pthread_mutex_unlock(&mutex);
+		cout << "Jobmanager: Pushing job " << j->id << " to " << d << endl;
 		d->addJob(j);
 		pthread_mutex_lock(&mutex);
 	}
