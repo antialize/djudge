@@ -37,6 +37,7 @@
 #define RUN_BAD_COMMAND            11
 #define RUN_PENDING                12
 #define RUN_EXTRACT_ERROR          13
+#define RUN_WRONG_OUTPUT           14
 std::string resultMessage(int res);
 
 #endif //__results_hh__

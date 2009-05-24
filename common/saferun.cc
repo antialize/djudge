@@ -29,6 +29,8 @@
 #include <stdio.h>
 #include <vector>
 #include <sys/wait.h>
+#include <iostream>
+using namespace std;
 
 static pid_t child;
 void timeout(int) {
@@ -84,6 +86,7 @@ int saferun(int in,
 			if(setrlimit(RLIMIT_AS,&l) == -1) THROW_PE("setrlimit() failed\n");			
 			setregid(group,group);
 			setreuid(user,user);
+
 			va_list ap;
 			std::vector<const char *> args;
 			va_start(ap, program);
@@ -115,7 +118,7 @@ int saferun(int in,
 		exit(RUN_SUCCESS);		       
 	}
 	if(outputlimiter != 0) close(out);
-
+	
 	close(timep[1]);
 	char i[40];
 	int x = read(timep[0], i, 39);

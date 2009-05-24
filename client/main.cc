@@ -170,6 +170,7 @@ int main(int argc, char ** argv) {
 					language = "java";
 				else
 					language = "cc";
+				//cout << language << endl;
 			}
 			ss.write("judge");
 			ss.write(entry);

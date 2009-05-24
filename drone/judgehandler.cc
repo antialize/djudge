@@ -19,21 +19,62 @@
 #include "commandhandler.hh"
 
 using namespace std;
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <unistd.h>
-#include <stdlib.h>
 #include "error.hh"
-#include "langsupport.hh"
 #include "globals.hh"
+#include "langsupport.hh"
 #include "results.hh"
-#include <sys/types.h>
 #include <dirent.h>
-#include <sys/types.h>
-#include <sys/stat.h>
 #include <fcntl.h>
-#include <unistd.h>
+#include <iostream>
 #include <stdlib.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
+
+
+int judgemain(int out) {
+	char a[10240];
+	char b[10240];
+	size_t au=0;
+	size_t bu=0;
+	size_t al=0;
+	size_t bl=0;
+	bool eoa=false;
+	bool eob=false;
+	bool precentationError=false;
+	while(!eoa || ! eob) {
+		if(!eoa && au == al) {
+			int r = read(0,a,10240);
+			au = 0;
+			if(r <= 0) eoa=true;
+			else al = r;
+		}
+		if(!eob && bu == bl) {
+			int r = read(out,b,10240);
+			bu = 0;
+			if(r <= 0) eob=true;
+			else bl = r;
+			a[al] = '\0';
+			b[bl] = '\0';
+		}
+		int na=eoa?-1:a[au];
+		int nb=eob?-1:b[bu];
+		if(na == nb) {
+			au++;
+			bu++;
+		} else 	if(na == '\n' || na == ' ' || na == '\r' || na == '\t') {
+			au++;
+			precentationError=true;
+		} else 	if(nb == '\n' || nb == ' ' || nb == '\r' || nb == '\t') {
+			bu++;
+			precentationError=true;
+		} else {
+			exit(1);
+		}
+	}
+	exit(precentationError?2:0);
+}
 
 class JudgeHandler: public CommandHandler {
 public:
@@ -50,12 +91,9 @@ public:
 			int fd = open(l->sourceName(base).c_str(), O_CREAT | O_TRUNC | O_WRONLY, S_IRUSR | S_IWUSR);
 			if(fd == -1) THROW_PE("open() failed");
 			if(fchown(fd, nobodyUser, nobodyGroup) == -1) THROW_PE("fchown() failed");
-			size_t n=1024*10;
-			char buff[n];
-			while(!s.read(buff,n)) 
-				if(write(fd,buff,n) != (int)n) 
-					THROW_PE("write() failed");
+			s.readFD(fd);
 			close(fd);
+			cout << "===========> Judging " << entry << " <==============" << endl;
 			bool r = l->compile(base, nobodyUser ,nobodyGroup,s);
 			l->removeSource(base);
 			if(r == false) return;
@@ -63,66 +101,66 @@ public:
 			if(chdir(dir.c_str()) == -1) THROW_PE("chdir() failed");
  			DIR * d = opendir("inputs");
 			if(d == NULL)  {
-				s.write(XSTR(RUN_INVALID_ENTRY));
-				s.write("");
+				s.write(XSTR(RUN_INTERNAL_ERROR));
+				s.write("Unable to open input");
 				l->removeBinary(base);
 				return;
 			}
+			string msg="success";
+			int res=RUN_SUCCESS;
+			l->restrictRun(base,false);
 			while(struct dirent * e = readdir(d)) {
 				if(e->d_name[0] == '.' || e->d_name[0] == '\0') continue;
-				char input[1024];
-				sprintf(input,"inputs/%s",e->d_name);
-				char output[1024];
-				sprintf(input,"outputs/%s",e->d_name);
-				int in1=open(input,O_RDONLY);
-				if(in1 == -1) THROW_PE("open() failed\n");
-				int in2=open(input,O_RDONLY);
-				if(in2 == -1) THROW_PE("open() failed\n");
-				int out=open(output,O_RDONLY);
-				//There might be no output if we are using some special judge
-				
+			 	char input[1024];
+ 				sprintf(input,"inputs/%s",e->d_name);
+ 				char output[1024];
+ 				sprintf(output,"outputs/%s",e->d_name);
+ 				int in1=open(input,O_RDONLY);
+ 				if(in1 == -1) THROW_PE("open() failed\n");
+ 				int in2=open(input,O_RDONLY);
+ 				if(in2 == -1) THROW_PE("open() failed\n");
+ 				int out=open(output,O_RDONLY);
 				int p[2];
-				if(pipe(p) == -1) THROW_PE("pipe() failed");
-				int judge = fork();
+ 				if(pipe(p) == -1) THROW_PE("pipe() failed");
+ 				int judge = fork();
 				if(judge == 0) {
-					close(in1);
-					close(p[1]);
+ 					close(in1);
+ 					close(p[1]);
 					dup2(p[0],0);
-					if(out == 3 && in2 == 4) {
-						dup2(in2,5);
-						close(in2);
-						dup2(out,4);
-						close(out);
-						dup2(5,3);
-						close(5);
-					} else if(out == 3) {
-						dup2(out,4);
-						close(out);
-						dup2(in2,3);
-						close(in2);
-					} else {
-						dup2(in2,3);
-						close(in2);
-						dup2(out,4);
-						close(out);
-					}
-					//Run judge here
+					judgemain(out);
+					exit(3);
 				}
-				if(judge == -1) THROW_PE("fork() failed");
-				
-				int exe = fork();
-				if(exe == 0) {
-					close(in2);
-					close(out);
-					close(p[0]);
-					//run(in1,p[1],2);
+ 				if(judge == -1) THROW_PE("fork() failed");
+				float time=10;
+				int r = l->run(base, in1, p[1], 2 , 1024*1024*128, 0, time, nobodyUser, nobodyGroup);
+				close(in1);
+				close(p[1]);
+				int s;
+				waitpid(judge,&s,0);
+				if(r != 0) {
+					res = r;
+					msg = "Error on runtime";
+					break;
+				} else if(!WIFEXITED(s) || WEXITSTATUS(s) < 0 || WEXITSTATUS(s) > 2) {
+					res = RUN_INTERNAL_ERROR;
+					msg = "The judge program failed";
+					break;
+				} else if(WEXITSTATUS(s) == 1) {
+					res = RUN_WRONG_OUTPUT;
+					msg = "Your program did not output the correct output";
+					break;
+				} else if(WEXITSTATUS(s) == 2) {
+					res = RUN_PRESENTATION_ERROR;
+					msg = "Your output was almost correct, but the whitespace was wrong";
+					break;
 				}
-				//Create the judging chain
 			}
-			//Open entity
-			//Run instances
-			//Calculate correct answer
-			s.write(XSTR(RUN_SUCCESS));
+			l->unrestrictRun(base);
+			l->removeBinary(base);
+			char buff[10];
+			sprintf(buff,"%d",res);
+			s.write(buff);
+			s.write(msg.c_str());
 		} catch(CommonException & e) {
 			s.write(XSTR(RUN_INTERNAL_ERROR));
 			s.write(e.what());

@@ -25,6 +25,7 @@
 #include <fcntl.h>
 #include <iostream>
 #include <pthread.h>
+#include <sstream>  
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -46,6 +47,27 @@ void Drone::addJob(Job * job) {
 	pthread_cond_signal(&jobQueueCond);
 	pthread_mutex_unlock(&jobQueueLock);
 }
+
+
+int Drone::import(PackageSocket & s, const std::string & name, const std::string & path, std::string & msg) {
+	s.write("import");
+	s.write(name);
+	int fd = open(path.c_str(), O_RDONLY);
+	if(fd == -1) {
+		msg="entry file missing from cache";
+		return RUN_INTERNAL_ERROR;
+	}
+	s.writeFD(fd);
+	close(fd);
+	string r = s.readString(10).c_str();
+	if(r == "" || !s.canRead()) THROW_E("drone died");
+	int res = atoi(r.c_str());
+	s.readString(1024*10);
+	if(res != 0) return res;
+	myEntries.insert(name);
+	return res;
+}
+
 
 void Drone::run_(PackageSocket & s) {
 	s.write("list");
@@ -75,34 +97,17 @@ void Drone::run_(PackageSocket & s) {
 		pthread_mutex_unlock(&jobQueueLock);
 		try {
 			switch(j->type) {
-			case import:
-			{
-				s.write("import");
-				s.write(j->a);
-				int fd = open(j->b.c_str(), O_RDONLY);
-				s.writeFD(fd);
-				string r = s.readString(10).c_str();
-				if(r == "" || !s.canRead()) THROW_E("drone died");
-				int res = atoi(r.c_str());
-				string msg = s.readString(1024*10);
-				if(res == 0) {
+			case ::import:
+				j->result = import(s,j->a,j->b, j->msg);
+				if(j->result == 0) {
 					string path=entriesPath+"/"+j->a;
-					if(rename(j->b.c_str(), path.c_str()) == -1) {
-						res=RUN_INTERNAL_ERROR;
-						msg="Overload: Rename failed";
-					}
-				}
-				if(res == 0) {
-					myEntries.insert(j->a);
+					if(rename(j->b.c_str(), path.c_str()) == -1) THROW_PE("rename() failed");
 					pthread_mutex_lock(&entriesMutex);
 					entries.insert(j->a);
 					pthread_mutex_unlock(&entriesMutex);
-				} else
+				} else 
 					unlink(j->b.c_str());
-				j->result = res;
-				j->msg = msg;
-			}
-			break;
+				break;
 			case dispose:
 				if(myEntries.count(j->a)) {
 					s.write("destroy");
@@ -114,12 +119,41 @@ void Drone::run_(PackageSocket & s) {
 					if(j->result == 0) entries.erase(j->a);
 				}
 				break;
-			case judge:
 			case push:
+				j->result = import(s,j->a, entriesPath+"/"+j->a, j->msg);
+				break;
+			case judge:
+				if(myEntries.count(j->a) == 0) {
+					string msg;
+					int res = import(s,j->a, entriesPath+"/"+j->a, msg);
+					if(res != 0) {
+						j->result = RUN_INTERNAL_ERROR;
+						ostringstream s;
+						s << "Internal error: import faild (" << res << ")\n" << msg; 
+						j->msg = s.str();
+						break;
+					}
+				}
+				s.write("judge");
+				s.write(j->a); //Send entry name
+				s.write(j->b); //Send language
+				s.write("foo"); //TODO implement verbosity
+				{
+					int f = open(j->c.c_str(),O_RDONLY);
+					if(f == -1) THROW_PE("open() failed");
+					s.writeFD(f);
+					close(f);
+					unlink(j->c.c_str());
+					string r = s.readString(10).c_str();
+					if(r == "" || !s.canRead()) THROW_E("drone died");
+					j->result = atoi(r.c_str());
+				    j->msg = s.readString(1024*10);
+					cout << j->msg << endl;
+				}
+				break;
 			default:
 				j->result = RUN_INTERNAL_ERROR;
 				j->msg = "Not implemented";
-				cout << j->type << endl;
 			}
 			cout << "Drone " << this << ": Finished job " << j->id << "  with result " << j->result << endl;
 			if(j->client) 

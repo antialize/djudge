@@ -24,6 +24,7 @@
 #include "error.hh"
 #include <sys/wait.h>
 #include <stdlib.h>
+#include <iostream>
 using namespace std;
 
 class CCLangSupport: public LangSupport {
@@ -44,16 +45,18 @@ public:
 		getcwd(cwd,1024);
 		char buff[2048];
 		buff[0] = '\0';
+		string path=name;
+		if(path[0] != '/') path=string(cwd)+"/"+name;
 		if(entryAccess) sprintf(buff,"  %s/**    rw,\n",cwd);
 		appArmorLoadProfile(
 			"#include <tunables/global>\n"
-			"%s/%s.out {\n"
+			"%s.out {\n"
 			"  #include <abstractions/base>\n"
-			"  %s/%s.out                 r,\n"
+			"  %s.out                 r,\n"
 			"  %s"
 			"}\n",
-			cwd,name.c_str(),
-			cwd,name.c_str(),
+			path.c_str(),
+			path.c_str(),
 			buff);
 	}
 			
@@ -61,7 +64,9 @@ public:
 		char cwd[1025];
 		getcwd(cwd,1024);
 		char buff[2048];
-		sprintf(buff,"%s/%s.out",cwd,name.c_str());
+		string path=name;
+		if(path[0] != '/') path=string(cwd)+"/"+name;
+		sprintf(buff,"%s.out",path.c_str());
 		appArmorRemoveProfile(buff);
 	}
 
@@ -141,6 +146,7 @@ public:
 		appArmorRemoveProfile(gpp.c_str());
 		return result;
 	}
+
 	int run(std::string name, 
 			int in, int out, int err, 
 			size_t memoryLimit,
@@ -149,7 +155,9 @@ public:
 			int user,
 			int group
 		) {
-		string path="./"+name+".out";
+		string path;
+		if(name[0] == '/') path=name+".out";
+		else path="./"+name+".out";
 		return saferun(in,out,err,memoryLimit,outputLimit,user,group,time,path.c_str(),path.c_str(),NULL);;
 	}
 };

@@ -33,6 +33,8 @@ private:
 public:
 	Drone();
 	~Drone();
+	int import(PackageSocket & s, const std::string & name, const std::string & path, std::string & msg);
+	
 	void addJob(Job * job);
 	void run_(PackageSocket & s); 
 	static void run(PackageSocket & s);
