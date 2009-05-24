@@ -21,6 +21,7 @@
 #include "globals.hh"
 #include "jobmanager.hh"
 #include "results.hh"
+#include "validation.hh"
 #include <iostream>
 #include <stdlib.h>
 using namespace std;
@@ -39,6 +40,7 @@ bool Client::handleCommand(const std::string & cmd, PackageSocket & s) {
 	} else if(cmd == "" || cmd == "leave")
 		return false;
 	else if(cmd == "identify") {
+		//TODO implement me
 		string name=s.readString(1024);
 		string password=s.readString(1024);
 		s.write(XSTR(RUN_SUCCESS));
@@ -51,48 +53,67 @@ bool Client::handleCommand(const std::string & cmd, PackageSocket & s) {
 			s.write((*i));
 		s.write("");
 	} else if(cmd == "dispose") {
-		string name=s.readString(1024);
-		pthread_mutex_lock(&entriesMutex);
-		bool found=entries.count(name)>0;
-		pthread_mutex_unlock(&entriesMutex);
-		if(found) {
-			uint64_t id = JobManager::addJob(dispose,this,name);
-			jobHook(s,id);
-		} else {
+		string name=s.readString(ENTRY_NAME_LENGTH);
+		if(!validateEntryName(name)) {
 			s.write(XSTR(RUN_INVALID_ENTRY));
-			s.write("The entry not found");
+			s.write("Invalid entry name");
+			return true;
 		}
-	} else if(cmd == "push") {
-		string name=s.readString(1024);
-		JobManager::addJob(push,this,name);
+		JobManager::addJob(dispose,this,name);
+		unlink((entriesPath+"/"+name).c_str());		
 		s.write(XSTR(RUN_SUCCESS));
-		s.write("Will push when possible");
-	} else if(cmd == "judge") {
-		string name=s.readString(1024);
-		string lang=s.readString(128);
-		char buff[64];
-		strcpy(buff,"/tmp/codeXXXXXX");
-		int f = mkstemp(buff);
-		s.readFD(f);
-		close(f);
+		s.write("Lazily disposing entry");
+	} else if(cmd == "push") {
+		string name=s.readString(ENTRY_NAME_LENGTH);
+		if(!validateEntryName(name)) {
+			s.write(XSTR(RUN_INVALID_ENTRY));
+			s.write("Invalid entry name");
+			return true;
+		}
 		pthread_mutex_lock(&entriesMutex);
 		bool found=entries.count(name)>0;
 		pthread_mutex_unlock(&entriesMutex);
 		if(!found) {
 			s.write(XSTR(RUN_INVALID_ENTRY));
+			s.write("The entry does not exist");
+			return true;
+		}
+		JobManager::addJob(push,this,name);
+		s.write(XSTR(RUN_SUCCESS));
+		s.write("Lasily pushing entry");
+	} else if(cmd == "judge") {
+		string name=s.readString(ENTRY_NAME_LENGTH);
+		string lang=s.readString(128);
+		char buff[64];
+		strcpy(buff,"/tmp/codeXXXXXX");
+		int f = mkstemp(buff);
+		if(f == -1) THROW_PE("mkstemp() failed");
+		s.readFD(f);
+		close(f);
+		pthread_mutex_lock(&entriesMutex);
+		bool found=validateEntryName(name) && entries.count(name)>0;
+		pthread_mutex_unlock(&entriesMutex);
+		if(!found) {
+			s.write(XSTR(RUN_INVALID_ENTRY));
 			s.write("The entry not found");
 			unlink(buff);
-		} else {
-			uint64_t id = JobManager::addJob(judge,this,name,lang,buff);
-			jobHook(s,id);
+			return true;
 		}
+		uint64_t id = JobManager::addJob(judge,this,name,lang,buff);
+		jobHook(s,id);
 	} else if(cmd == "import") {
-		string name=s.readString(1024);
+		string name=s.readString(ENTRY_NAME_LENGTH);
 		char buff[64];
 		strcpy(buff,(entriesPath+"/.tmpXXXXXX").c_str());
 		int f = mkstemp(buff);
 		s.readFD(f);
 		close(f);
+		if(!validateEntryName(name)) {
+			s.write(XSTR(RUN_INVALID_ENTRY));
+			s.write("Invalid entry name");
+			unlink(buff);
+			return true;
+		}
 		pthread_mutex_lock(&entriesMutex);
 		bool found=entries.count(name)>0;
 		pthread_mutex_unlock(&entriesMutex);
@@ -100,10 +121,10 @@ bool Client::handleCommand(const std::string & cmd, PackageSocket & s) {
 			s.write(XSTR(RUN_INVALID_ENTRY));
 			s.write("An entry with that name allredy exists");
 			unlink(buff);
-		} else {
-			uint64_t id = JobManager::addJob(import,this,name,buff);
-			jobHook(s,id);
-		}
+			return true;
+		} 
+		uint64_t id = JobManager::addJob(import,this,name,buff);
+		jobHook(s,id);
 	} else {
 		s.write(XSTR(RUN_BAD_COMMAND));
 		s.write("Unknown command "+cmd);

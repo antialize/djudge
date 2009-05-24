@@ -21,6 +21,7 @@
 #include "error.hh"
 #include "globals.hh"
 #include "results.hh"
+#include "validation.hh"
 #include <fcntl.h>
 #include <iostream>
 #include <pthread.h>
@@ -47,8 +48,13 @@ void Drone::addJob(Job * job) {
 }
 
 void Drone::run_(PackageSocket & s) {
+	s.write("list");
+	while(s.canRead()) {
+		string entry = s.readString(ENTRY_NAME_LENGTH);
+		if(entry == "") break;
+		myEntries.insert(entry);
+	}
 	pthread_mutex_lock(&jobQueueLock);
-	//Here we should read the drones entry list
 	while(s.canRead()) {
 		struct timespec t;
 		clock_gettime(CLOCK_REALTIME, &t);
@@ -77,10 +83,8 @@ void Drone::run_(PackageSocket & s) {
 				s.writeFD(fd);
 				string r = s.readString(10).c_str();
 				if(r == "" || !s.canRead()) THROW_E("drone died");
-				cout << "r: " << r << endl;
 				int res = atoi(r.c_str());
 				string msg = s.readString(1024*10);
-				cout << "message: " << msg << endl;
 				if(res == 0) {
 					string path=entriesPath+"/"+j->a;
 					if(rename(j->b.c_str(), path.c_str()) == -1) {
@@ -89,26 +93,39 @@ void Drone::run_(PackageSocket & s) {
 					}
 				}
 				if(res == 0) {
+					myEntries.insert(j->a);
 					pthread_mutex_lock(&entriesMutex);
 					entries.insert(j->a);
 					pthread_mutex_unlock(&entriesMutex);
-				} else {
-					//unlink(j->b.c_str());
-				}
+				} else
+					unlink(j->b.c_str());
 				j->result = res;
 				j->msg = msg;
 			}
+			break;
+			case dispose:
+				if(myEntries.count(j->a)) {
+					s.write("destroy");
+					s.write(j->a);
+					string r = s.readString(10).c_str();
+					if(r == "" || !s.canRead()) THROW_E("drone died");
+					j->result = atoi(r.c_str());
+				    j->msg = s.readString(128);
+					if(j->result == 0) entries.erase(j->a);
+				}
 				break;
 			case judge:
 			case push:
-			case dispose:
 			default:
 				j->result = RUN_INTERNAL_ERROR;
 				j->msg = "Not implemented";
 				cout << j->type << endl;
 			}
 			cout << "Drone " << this << ": Finished job " << j->id << "  with result " << j->result << endl;
-			if(j->client) j->client->jobDone(j);
+			if(j->client) 
+				j->client->jobDone(j);
+			else 
+				delete j;
 			//Forward the job					
 		} catch(std::exception & e) {
 			JobManager::addJob(j);

@@ -19,6 +19,7 @@
 #include "langsupport.hh"
 #include "saferun.hh"
 #include "results.hh"
+#include <iostream>
 using namespace std;
 
 class PythonLangSupport: public LangSupport {
@@ -29,6 +30,7 @@ public:
 
 	bool hasSource(std::string name) {
 		string path=name+".py";
+		cout << path << endl;
 		return access(path.c_str(),R_OK) == 0;
 	}
 	bool compile(std::string, int user, int group, PackageSocket & s) {return true;}

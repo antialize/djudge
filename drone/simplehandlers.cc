@@ -17,13 +17,16 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "commandhandler.hh"
-#include <dirent.h>
-#include <sys/types.h>
-#include <sys/dir.h>
+#include "error.hh"
+#include "globals.hh"
+#include "results.hh"
+#include "validation.hh"
 #include <cstdio>
 #include <cstdlib>
+#include <dirent.h>
+#include <sys/dir.h>
+#include <sys/types.h>
 #include <sys/wait.h>
-#include "error.hh"
 
 class VersionHandler: public CommandHandler {
 public:
@@ -43,7 +46,7 @@ class ListHandler: public CommandHandler {
 public:
 	std::string name() const {return "list";}
 	void handle(PackageSocket & s) {
-		DIR * d = opendir("entries");
+		DIR * d = opendir(entriesPath.c_str());
 		if(d != NULL) {
 			while(struct dirent * e = readdir(d)) {
 				if(e->d_name[0] == '.' || e->d_name[0] == '\0') continue;
@@ -60,18 +63,16 @@ class DestroyHandler: public CommandHandler {
 public:
 	std::string name() const {return "destroy";}
 	void handle(PackageSocket & s) {
-		std::string name = s.readString(1023);
-		bool clean=true;
-		for(size_t i=0; i < name.size(); ++i) 
-			if(name[i] == '.' || name[i] == '/' || name[i] == '\'' 
-			   || name[i] == '$' || name[i] == '#') clean=false;
-		if(!clean) {
+		std::string name = s.readString(ENTRY_NAME_LENGTH);
+		if(!validateEntryName(name)) {
+			s.write(XSTR(RUN_INVALID_ENTRY));
 			s.write("invalid name");
 			return;
 		}
 		char buff2[1124];
-		sprintf(buff2,"rm -rf 'entries/%s'",name.c_str());
+		sprintf(buff2,"rm -rf '%s/%s'",entriesPath.c_str(), name.c_str());
 		system(buff2);
+		s.write(XSTR(RUN_SUCCESS));
 		s.write("success");
 	};
 };

@@ -144,7 +144,6 @@ using namespace std;void PackageSocket::readFD(int fd, size_t maxsize) {
 		bool r=read(buff,ll);
 		for(size_t s=0; s<ll;) {
 			int w=::write(fd, buff+s, ll-s);
-			cout << ll << ">=" << w << endl;
 			if(w == -1) THROW_PE("write() failed");
 			s+=w;
 		}

@@ -182,7 +182,7 @@ int main(int argc, char ** argv) {
 			cout << a  << endl << ss.readString(1024*128) << endl;
 		} else if(command == "import") {
 			size_t l = input.rfind('/');
-			if(l == string::npos) l=0;
+			if(l == string::npos) l=-1;
 			string x=input.substr(l+1);
 			size_t r = x.find('.');
 			if(r == string::npos) {

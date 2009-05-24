@@ -41,10 +41,10 @@ void JobManager::init() {
 uint64_t JobManager::addJob(Job * i) {
 	pthread_mutex_lock(&mutex);
 	uint64_t _=i->id;
-	if(i->type == push) {
+	if(i->type == push || i->type == dispose) {
 		for(std::set<Drone *>::iterator _ = drones.begin(); _ != drones.end(); ++_) {
 			Job * j = new Job();
-			j->type = push;
+			j->type = i->type;
 			j->id = 0;
 			j->client = NULL;
 			j->a = i->a;

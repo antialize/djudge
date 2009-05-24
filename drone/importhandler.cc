@@ -36,7 +36,7 @@
 //1. Possible generate (additional) inputs
 //2. Possible Compile a Special judge
 //3. Compile all sample solutions and time them on all inputs
-
+using namespace std;
 class ImportHandler: public CommandHandler {
 public:
 	std::string name() const {return "import";}
@@ -89,14 +89,13 @@ public:
 			if(!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
 				s.write(XSTR(RUN_EXTRACT_ERROR));
 				char buff[100];
-				snprintf(buff,100, "unpacking faild with exitcode %d",WEXITSTATUS(status));
-				buff[100] = '\0';
+				snprintf(buff,100, "unpacking failed with exitcode %d",WEXITSTATUS(status));
+				buff[99] = '\0';
 				s.write(buff);
 				return;
 			}
 			printf("Generating additional inputs\n");
 			//Generate additional inputs here
-
 			for(langByRank_t::iterator i = langByRank.begin(); 
 				i != langByRank.end(); ++i)  {
 				LangSupport * l = i->second;
@@ -123,7 +122,7 @@ public:
 				LangSupport * l = i->second;
 				if(!l->hasSource("reference")) continue;
 				if(!l->compile("reference", droneUser, droneGroup, s)) return;
-				l->restrictRun("inputGenerator", false);
+				l->restrictRun("reference", false);
 				DIR * d = opendir("inputs");
 				if(d == NULL) THROW_PE("opendir() failed");
 				while(struct dirent * e = readdir(d)) {
@@ -156,7 +155,7 @@ public:
 					fclose(f);
 					if(chown(buff, droneUser, droneGroup) == -1) THROW_PE("chown() failed");
 				}
-				l->unrestrictRun("inputGenerator");
+				l->unrestrictRun("reference");
 				closedir(d);
 			}
 			s.write(XSTR(RUN_SUCCESS));

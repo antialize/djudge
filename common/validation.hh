@@ -16,25 +16,11 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#ifndef __drone_hh__
-#define __drone_hh__
+#ifndef __validation_hh__
+#define __validation_hh__
+#include <string>
 
-#include "jobmanager.hh"
-#include "packagesocket.hh"
-#include <pthread.h>
-#include <set>
+#define ENTRY_NAME_LENGTH 128
 
-class Drone {
-private:
-	pthread_mutex_t jobQueueLock;
-	pthread_cond_t jobQueueCond;
-	std::deque<Job *> jobQueue;
-	std::set<std::string> myEntries;
-public:
-	Drone();
-	~Drone();
-	void addJob(Job * job);
-	void run_(PackageSocket & s); 
-	static void run(PackageSocket & s);
-};
-#endif //__drone_hh__
+bool validateEntryName(const std::string & name);
+#endif //__validation_hh__
