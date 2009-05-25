@@ -22,14 +22,15 @@
 
 //Runs an executable in a safe manner, returns run result values
 int saferun(int in, //Use this fd as stdin
-	    int out,  //Use this fd as stdout
-	    int error, //Used this fd as stderr,
-	    size_t memoryLimit, //Memory limit in bytes
-	    size_t outputLimit, //Output limit in bytes
-	    int user, //Drop to this user when running
-		int group, 
-	    float & time, //The maximum time allowed to run, opun return the actual time speend running.
-	    const char * program, //The name of the program to run
-	    ... //NULL termiated list of arguments
+			int out,  //Use this fd as stdout
+			int error, //Used this fd as stderr,
+			size_t memoryLimit, //Memory limit in bytes
+			size_t outputLimit, //Output limit in bytes
+			int user, //Drop to this user when running
+			int group, 
+			float & time, //The maximum time allowed to run, opun return the actual time speend running.
+			int forkLimit,
+			const char * program, //The name of the program to run
+			... //NULL termiated list of arguments
 	);
 #endif //__saferun_hh__

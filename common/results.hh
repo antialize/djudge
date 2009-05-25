@@ -28,7 +28,7 @@
 #define RUN_PRESENTATION_ERROR     2
 #define RUN_TIME_LIMIT_EXCEEDED    3
 #define RUN_ABNORMAL_TERMINATION   4
-#define RUM_RUNTIME_ERROR          5
+#define RUN_RUNTIME_ERROR          5
 #define RUN_OUTPUT_LIMIT_EXCEEDED  6
 #define RUN_INTERNAL_ERROR         7
 #define RUN_COMPILATION_TIME_LIMIT_EXCEEDED 8
@@ -38,6 +38,9 @@
 #define RUN_PENDING                12
 #define RUN_EXTRACT_ERROR          13
 #define RUN_WRONG_OUTPUT           14
+#define RUN_INVALID_MEMORY_REFERENCE 15
+#define RUN_MEMORY_LIMIT_EXCEEDED  16
+#define RUN_DEVIDE_BY_ZERO        17
 std::string resultMessage(int res);
 
 #endif //__results_hh__

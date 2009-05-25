@@ -30,7 +30,7 @@ std::string resultsMessage(int res) {
 		return "The time limit was exceeded";
 	case RUN_ABNORMAL_TERMINATION:
 		return "The program terminated abnormaly";
-	case RUM_RUNTIME_ERROR:
+	case RUN_RUNTIME_ERROR:
 		return "The program faild to run";
 	case RUN_OUTPUT_LIMIT_EXCEEDED:
 		return "Tho profram exceeded the output limit";

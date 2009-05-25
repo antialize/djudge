@@ -2,7 +2,7 @@
 GARGS=$@
 function t() {
     name=$1
-    r=$2
+    r=$(cat ../common/results.hh | sed -nre "s/#define $2[ \t]*([0-9]+)/\1/p")
     shift
     shift
     rm -rf x
@@ -24,15 +24,15 @@ rm -rf ../test.tar.bz2
 cd add
 tar -cjf ../test.tar.bz2 *
 cd ..
-t "dispose test" 0 dispose test
-t "import test" 0 import test.tar.bz2
-t2 "good test" 0 good.cc
-t2 "Precentation error" 2 pres.cc
-t2 "wrong output" 14 wrong.cc
-t2 "hack" 1 hack.cc
-t2 "sigsegv" 5 sigsegv.cc
-t2 "Memory" 5 memory.cc
-t2 "Bussy wait" 3 bussywait.cc
-t2 "Sleep wait" 3 sleep.cc
-t2 "Fork bomb" 3 fork.cc
-t2 "Compile error" 14 compile.cc
+t "dispose test" RUN_SUCCESS dispose test
+t "import test" RUN_SUCCESS import test.tar.bz2
+t2 "good test" RUN_SUCCESS good.cc
+t2 "Precentation error" RUN_PRESENTATION_ERROR pres.cc
+t2 "wrong output" RUN_WRONG_OUTPUT wrong.cc
+t2 "hack" RUN_EXIT_NOT_ZERO hack.cc
+t2 "sigsegv" RUN_INVALID_MEMORY_REFERENCE sigsegv.cc
+t2 "Memory" RUN_MEMORY_LIMIT_EXCEEDED memory.cc
+t2 "Compile error" RUN_COMPILATION_ERROR compile.cc
+t2 "Bussy wait" RUN_TIME_LIMIT_EXCEEDED bussywait.cc
+t2 "Sleep wait" RUN_TIME_LIMIT_EXCEEDED sleep.cc
+t2 "Fork bomb" RUN_TIME_LIMIT_EXCEEDED fork.cc

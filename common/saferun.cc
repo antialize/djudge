@@ -46,6 +46,7 @@ int saferun(int in,
 			int user, 
 			int group,
 			float & time,
+			int forkLimit,
 			const char * program, 
 			... 
 	) {
@@ -83,17 +84,14 @@ int saferun(int in,
 			if(err != 2) dup2(err,2);
 
 			setuid(user);
-			struct rlimit l = {100, 100};
+			struct rlimit l = {forkLimit, forkLimit};
 			if(setrlimit(RLIMIT_NPROC,&l) == -1) THROW_PE("setrlimit() failed\n");			
-			//if(setrlimit(RLIMIT_NOFILE,&l) == -1) THROW_PE("setrlimit() failed\n");			
 			
 			struct rlimit l2 = {memoryLimit, memoryLimit};
 			if(setrlimit(RLIMIT_AS,&l2) == -1) THROW_PE("setrlimit() failed\n");			
 
 			setregid(group,group);
 			setreuid(user,user);
-
-			
 						
 			va_list ap;
 			std::vector<const char *> args;
@@ -115,7 +113,16 @@ int saferun(int in,
 		int status;
 		waitpid(app, &status, 0);
 		getitimer(ITIMER_REAL, &cur);
-		if(WIFSIGNALED(status)) exit(RUM_RUNTIME_ERROR);
+		if(WIFSIGNALED(status)){
+			if(WTERMSIG(status) == 11) 
+				exit(RUN_INVALID_MEMORY_REFERENCE);
+			else if(WTERMSIG(status) == 6) 
+				exit(RUN_MEMORY_LIMIT_EXCEEDED);
+			else if(WTERMSIG(status) == 8)
+				exit(RUN_DEVIDE_BY_ZERO);
+			else
+				exit(RUN_RUNTIME_ERROR);
+		}
 		if(!WIFEXITED(status)) exit(RUN_ABNORMAL_TERMINATION);
 		if(WEXITSTATUS(status) != 0) exit(RUN_EXIT_NOT_ZERO);
 		char o[40];

@@ -106,7 +106,7 @@ public:
 		pid_t f = fork();
 		if(f == 0) {
 			close(p[0]);
-			exit(saferun(0,p[1],p[1],100*1024*1024,0,user,group,time,"g++","g++","-O2" , "-Wall" , "-W", "-o", dst.c_str(), src.c_str(), NULL));
+			exit(saferun(0,p[1],p[1],100*1024*1024,0,user,group,time,10,"g++","g++","-O2" , "-Wall" , "-W", "-o", dst.c_str(), src.c_str(), NULL));
 		}
 		if(f == -1) THROW_PE("fork() failed");
 		close(p[1]);
@@ -158,7 +158,7 @@ public:
 		string path;
 		if(name[0] == '/') path=name+".out";
 		else path="./"+name+".out";
-		return saferun(in,out,err,memoryLimit,outputLimit,user,group,time,path.c_str(),path.c_str(),NULL);;
+		return saferun(in,out,err,memoryLimit,outputLimit,user,group,time,0,path.c_str(),path.c_str(),NULL);;
 	}
 };
 

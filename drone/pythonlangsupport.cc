@@ -47,7 +47,7 @@ public:
 			int user,
 		    int group) {
 		string path=name+".py";
-		return saferun(in,out,err,memoryLimit,outputLimit,user,group,time,"python","python",path.c_str(),NULL);
+		return saferun(in,out,err,memoryLimit,outputLimit,user,group,time,0,"python","python",path.c_str(),NULL);
 	}
 	float rank() {return 99;}
 	string name() {return "python";}
