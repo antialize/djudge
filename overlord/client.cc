@@ -23,6 +23,7 @@
 #include "results.hh"
 #include "validation.hh"
 #include <iostream>
+#include <sstream>
 #include <stdlib.h>
 using namespace std;
 pthread_mutex_t ASyncClient::cookieMapMutex;
@@ -31,12 +32,12 @@ std::map<std::string, ASyncClient *> ASyncClient::cookieMap;
 bool Client::handleCommand(const std::string & cmd, PackageSocket & s) {
 	if(cmd == "status") {
 		s.write(XSTR(RUN_SUCCESS));
-		size_t a = JobManager::freeDrones.size();
-		size_t b = JobManager::jobQueue.size();
-		size_t c = JobManager::drones.size();
-		char buff[1023];
-		sprintf(buff,"The overlord is up and running\nDrones: %d\nFree: %d\nPending jobs: %d",(int)c,(int)a,(int)b);
-		s.write(buff);
+		ostringstream res;
+		res << "The overlord is up and running" << endl
+			<< "Drones:       " << JobManager::drones.size() << endl
+			<< "Free:         " << JobManager::freeDrones.size() << endl
+			<< "Pending jobs: " << JobManager::jobQueue.size();
+		s.write(res.str());
 	} else if(cmd == "" || cmd == "leave")
 		return false;
 	else if(cmd == "identify") {
@@ -83,7 +84,7 @@ bool Client::handleCommand(const std::string & cmd, PackageSocket & s) {
 		s.write("Lasily pushing entry");
 	} else if(cmd == "judge") {
 		string name=s.readString(ENTRY_NAME_LENGTH);
-		string lang=s.readString(128);
+		string lang=s.readString(LANG_NAME_LENGTH);
 		char buff[64];
 		strcpy(buff,"/tmp/codeXXXXXX");
 		int f = mkstemp(buff);
@@ -134,9 +135,8 @@ bool Client::handleCommand(const std::string & cmd, PackageSocket & s) {
 
 void Client::run_(PackageSocket & s) {
 	while(s.canRead()) {
-		string cmd = s.readString(128);
-		cout << cmd << endl;
-		if(!handleCommand(cmd,s)) continue;
+		string cmd = s.readString(COMMAND_LENGTH);
+		if(!handleCommand(cmd,s)) break;
 	}
 }
 
@@ -149,7 +149,7 @@ ASyncClient::~ASyncClient() {
 }
 
 void ASyncClient::run(PackageSocket & s) {
-	string cookie = s.readString(128);
+	string cookie = s.readString(COOKIE_LENGTH);
 	pthread_mutex_lock(&cookieMapMutex);
 	ASyncClient * c;
 	if(cookieMap.count(cookie) == 0) 
@@ -165,10 +165,10 @@ void ASyncClient::init() {
 }
 
 void ASyncClient::jobHook(PackageSocket & s, uint64_t jobid) {
-	char buff[32];
-	s.write(XSTR(RUN_SUCCESS));
-	sprintf(buff,"%ld",jobid);
-	s.write(buff);
+	ostringstream r;
+	r << jobid;
+	s.write(XSTR(RUN_PENDING));
+	s.write(r.str());
 }
 
 void ASyncClient::jobDone(Job * j) {
@@ -178,20 +178,21 @@ void ASyncClient::jobDone(Job * j) {
 }
 
 bool ASyncClient::handleCommand(const std::string & cmd, PackageSocket & s) {
-	if(cmd == "pullResults") {
+	if(cmd == "pullresults") {
 		pthread_mutex_lock(&resultMutex);
-		for(size_t i=0; i < results.size(); ++i) {
-			char buff[128];
-			sprintf(buff,"%ld",results[i]->id);
-			s.write(buff);
-			sprintf(buff,"%d",results[i]->result);
-			s.write(buff);
+		std::vector<Job*> res(results.begin(), results.end());
+		results.clear();
+		pthread_mutex_unlock(&resultMutex);		
+		for(size_t i=0; i < res.size(); ++i) {
+			ostringstream id,r;
+			id << res[i]->id;
+			s.write(id.str());
+			r << res[i]->result;
+			s.write(r.str());
 			s.write(results[i]->msg);
 			delete(results[i]);
 		}
-		results.clear();
 		s.write("");
-		pthread_mutex_unlock(&resultMutex);
 		return true;
 	} else
 		return Client::handleCommand(cmd,s);
@@ -219,9 +220,9 @@ void SyncClient::jobHook(PackageSocket & s, uint64_t) {
 	Job * j=job;
 	job=NULL;
 	pthread_mutex_unlock(&resultMutex);
-	char buff[32];
-	sprintf(buff,"%d",j->result);
-	s.write(buff);
+	ostringstream r;
+	r << j->result;
+	s.write(r.str());
 	s.write(j->msg);
 	delete j;
 }

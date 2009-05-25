@@ -48,7 +48,6 @@ void Drone::addJob(Job * job) {
 	pthread_mutex_unlock(&jobQueueLock);
 }
 
-
 int Drone::import(PackageSocket & s, const std::string & name, const std::string & path, std::string & msg) {
 	s.write("import");
 	s.write(name);
@@ -59,10 +58,10 @@ int Drone::import(PackageSocket & s, const std::string & name, const std::string
 	}
 	s.writeFD(fd);
 	close(fd);
-	string r = s.readString(10).c_str();
+	string r = s.readString(12).c_str();
 	if(r == "" || !s.canRead()) THROW_E("drone died");
 	int res = atoi(r.c_str());
-	s.readString(1024*10);
+	msg = s.readString(1024*128);
 	if(res != 0) return res;
 	myEntries.insert(name);
 	return res;
@@ -80,7 +79,7 @@ void Drone::run_(PackageSocket & s) {
 	while(s.canRead()) {
 		struct timespec t;
 		clock_gettime(CLOCK_REALTIME, &t);
-		t.tv_sec += 5;
+		t.tv_sec += 60;
 		pthread_cond_timedwait(&jobQueueCond, &jobQueueLock, &t);
 		if(jobQueue.empty()) {
 			if(!s.canRead()) break;
@@ -92,9 +91,9 @@ void Drone::run_(PackageSocket & s) {
 			continue;
 		}
 		Job * j = jobQueue.back();
-		cout << "Drone " << this << ": Processing job " << j->id << endl;
 		jobQueue.pop_back();
 		pthread_mutex_unlock(&jobQueueLock);
+		cout << "Drone " << this << ": Processing job " << j->id << endl;
 		try {
 			switch(j->type) {
 			case ::import:
@@ -112,10 +111,10 @@ void Drone::run_(PackageSocket & s) {
 				if(myEntries.count(j->a)) {
 					s.write("destroy");
 					s.write(j->a);
-					string r = s.readString(10).c_str();
+					string r = s.readString(12).c_str();
 					if(r == "" || !s.canRead()) THROW_E("drone died");
 					j->result = atoi(r.c_str());
-				    j->msg = s.readString(128);
+				    j->msg = s.readString(1024*10);
 					if(j->result == 0) entries.erase(j->a);
 				}
 				break;
@@ -137,7 +136,6 @@ void Drone::run_(PackageSocket & s) {
 				s.write("judge");
 				s.write(j->a); //Send entry name
 				s.write(j->b); //Send language
-				s.write("foo"); //TODO implement verbosity
 				{
 					int f = open(j->c.c_str(),O_RDONLY);
 					if(f == -1) THROW_PE("open() failed");
@@ -147,8 +145,7 @@ void Drone::run_(PackageSocket & s) {
 					string r = s.readString(10).c_str();
 					if(r == "" || !s.canRead()) THROW_E("drone died");
 					j->result = atoi(r.c_str());
-				    j->msg = s.readString(1024*10);
-					cout << j->msg << endl;
+				    j->msg = s.readString(1024*128);
 				}
 				break;
 			default:
@@ -160,7 +157,6 @@ void Drone::run_(PackageSocket & s) {
 				j->client->jobDone(j);
 			else 
 				delete j;
-			//Forward the job					
 		} catch(std::exception & e) {
 			JobManager::addJob(j);
 			throw e;

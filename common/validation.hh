@@ -21,6 +21,8 @@
 #include <string>
 
 #define ENTRY_NAME_LENGTH 128
-
+#define LANG_NAME_LENGTH 128
+#define COMMAND_LENGTH 128
+#define COOKIE_LENGTH 128
 bool validateEntryName(const std::string & name);
 #endif //__validation_hh__
