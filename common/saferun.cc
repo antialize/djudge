@@ -82,11 +82,19 @@ int saferun(int in,
 			if(out != 1) dup2(out,1);
 			if(err != 2) dup2(err,2);
 
-			struct rlimit l = {memoryLimit, memoryLimit};
-			if(setrlimit(RLIMIT_AS,&l) == -1) THROW_PE("setrlimit() failed\n");			
+			setuid(user);
+			struct rlimit l = {100, 100};
+			if(setrlimit(RLIMIT_NPROC,&l) == -1) THROW_PE("setrlimit() failed\n");			
+			//if(setrlimit(RLIMIT_NOFILE,&l) == -1) THROW_PE("setrlimit() failed\n");			
+			
+			struct rlimit l2 = {memoryLimit, memoryLimit};
+			if(setrlimit(RLIMIT_AS,&l2) == -1) THROW_PE("setrlimit() failed\n");			
+
 			setregid(group,group);
 			setreuid(user,user);
 
+			
+						
 			va_list ap;
 			std::vector<const char *> args;
 			va_start(ap, program);

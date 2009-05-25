@@ -79,7 +79,7 @@ void runServer(int port) {
 // 	signal(SIGABRT, handler);
 // 	signal(SIGFPE, handler);
 // 	signal(SIGSEGV, handler);
-// 	signal(SIGPIPE, handler);
+ 	signal(SIGPIPE, SIG_IGN);
 	signal(SIGTERM, handler);
 	sockaddr_in a;
 	s = socket(AF_INET,SOCK_STREAM,0);

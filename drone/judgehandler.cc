@@ -84,7 +84,6 @@ public:
 			umask(~S_IRWXU);
 			string entry = s.readString(1024);
 			string language = s.readString(1024);
-			string verbosity = s.readString(1024);
 			if(langByName.count(language) == 0) THROW_E("Invalid language");
 			LangSupport * l = langByName[language];
 			string base = tempnam("/tmp","djudge");

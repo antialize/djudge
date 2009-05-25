@@ -111,7 +111,7 @@ void PackageSocket::write(const char *b, size_t len, bool end_of_package) {
 		size_t x=0;
 		while(x < write_buff_used) {
 			ssize_t s = send(sock, write_buff, write_buff_used-x, 0);
-			if(s == -1) THROW_PE("send failed\n");
+			if(s == -1 || s == 0) THROW_PE("send failed\n");
 			x+=s;
 		}
 		write_buff_used=0;
