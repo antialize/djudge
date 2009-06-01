@@ -17,15 +17,20 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "commandhandler.hh"
+#include "config.hh"
 #include "error.hh"
+#include "fs.hh"
 #include "globals.hh"
 #include "langsupport.hh"
 #include "results.hh"
+#include <boost/program_options.hpp>
 #include <cstdio>
 #include <cstdlib>
 #include <dirent.h>
 #include <fcntl.h>
+#include <fstream>
 #include <iostream>
+#include <sstream>
 #include <sys/dir.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -41,19 +46,21 @@ class ImportHandler: public CommandHandler {
 public:
 	std::string name() const {return "import";}
 	void handle(PackageSocket & s) {
+		std::string p;
 		try {
 			umask(~S_IRWXU);
 			//Read the name of the new entity
 			std::string name = s.readString(1024);
 			printf("==============> importing %s <==============\n",name.c_str());
 
+			p = entriesPath + "/" + name;
 			pid_t r = fork();
 			if(r == 0) {
 				setregid(droneGroup, droneGroup);
 				setreuid(droneUser, droneUser);
 				mkdir(entriesPath.c_str(),0700);
 				if(chdir(entriesPath.c_str()) == -1) exit(1);
-				if(mkdir(name.c_str(),0700) == -1) exit(1);
+				if(mkdir(name.c_str(),0700) == -1 && errno != EEXIST) exit(1);
 				if(chdir(name.c_str()) == -1) exit(1);
 				mkdir("inputs",0700);
 				mkdir("inputs",0700);
@@ -65,8 +72,7 @@ public:
 			if(r == -1) THROW_PE("fork() failed\n");
 			if(waitpid(r, &status, 0) == -1) THROW_PE("waitpid() failed\n");
 			if(!WIFEXITED(status) || WEXITSTATUS(status) != 0) THROW_E("Failed creating directory structure\n");
-			if(chdir(entriesPath.c_str()) == -1 ||
-			   chdir(name.c_str()) == -1) THROW_PE("chdir() failed\n");
+			if(chdir(p.c_str()) == -1) THROW_PE("chdir() failed\n");
 
 			//Extract the archive on the fly
 			int pipefd[2];
@@ -87,13 +93,27 @@ public:
 			close(pipefd[1]);
 			if(waitpid(r, &status, 0) == -1) THROW_PE("waitpid() failed\n");
 			if(!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
+				rmrf(p.c_str());
 				s.write(XSTR(RUN_EXTRACT_ERROR));
-				char buff[100];
-				snprintf(buff,100, "unpacking failed with exitcode %d",WEXITSTATUS(status));
-				buff[99] = '\0';
-				s.write(buff);
+				std::ostringstream e;
+				e << "unpacking faild with exitcode " << WEXITSTATUS(status);
+				s.write(e.str());
 				return;
 			}
+
+			printf("Checking the config.ini file\n");
+			try {
+				Config * c = parseConfig("config.ini");
+				delete c;
+			} catch(std::exception & e) { 
+				rmrf(p.c_str());
+				s.write(XSTR(RUN_EXTRACT_ERROR));
+ 				std::ostringstream _;
+ 				_ << "Error parsing config.ini: " << e.what();
+ 				s.write(_.str());
+				return;
+			}
+
 			printf("Generating additional inputs\n");
 			//Generate additional inputs here
 			for(langByRank_t::iterator i = langByRank.begin(); 
@@ -105,6 +125,7 @@ public:
 				l->restrictRun("inputgenerator", true);
 				int r = l->run("inputgenerator", 0, 1, 2, 100 * 1024 * 1024, 0, time, droneUser, droneGroup);
 				if(r != RUN_SUCCESS) {
+					rmrf(p.c_str());
 					char buff[1024];
 					sprintf(buff,"%d",r);
 					s.write(buff);
@@ -140,6 +161,7 @@ public:
 					close(out);
 					chown(buff, droneUser, droneGroup);
 					if(r != RUN_SUCCESS) {
+						rmrf(".");
 						char buff[1024];
 						sprintf(buff,"%d",r);
 						s.write(buff);
@@ -161,7 +183,7 @@ public:
 			s.write(XSTR(RUN_SUCCESS));
 			s.write(name + " imported sucessfully");
 		} catch(CommonException & e) {
-			std::cerr << e.what();
+			if(p != "") rmrf(p.c_str());
 			s.write(XSTR(RUN_INTERNAL_ERROR));
 			s.write(e.what());
 		}
