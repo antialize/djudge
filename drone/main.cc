@@ -16,24 +16,24 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+#include "commandhandler.hh"
+#include "error.hh"
+#include "globals.hh"
+#include "langsupport.hh"
+#include "packagesocket.hh"
+#include "validation.hh"
+#include <boost/program_options.hpp>
+#include <cstring>
+#include <fstream>
+#include <iostream>
+#include <map>
+#include <netdb.h>
+#include <netinet/in.h>
+#include <pwd.h>
+#include <stdio.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <netinet/in.h>
-#include <netdb.h>
-#include <stdio.h>
-#include <cstring>
-#include "packagesocket.hh"
-#include <map>
-#include "commandhandler.hh"
-#include "error.hh"
-#include "langsupport.hh"
-#include <fstream>
-#include <iostream>
-#include <boost/program_options.hpp>
-#include "globals.hh"
-#include <sys/types.h>
-#include <pwd.h>
 namespace po = boost::program_options;
 
 using namespace std;
@@ -44,27 +44,26 @@ private:
 public:
     void addHandler(CommandHandler * h) {handlers[h->name()] = h;}
     void run(std::string hostName, int port) {
-	struct hostent *host;
-	int s = socket(AF_INET,SOCK_STREAM,0);
-	if(s == -1) THROW_PE("socket() failed\n");
-	host = gethostbyname(hostName.c_str());
-	struct sockaddr_in server_addr;  
-	server_addr.sin_family = AF_INET;
-	server_addr.sin_port = htons(port);   
-	server_addr.sin_addr = *((struct in_addr *)host->h_addr);
-	if(connect(s, (struct sockaddr *)&server_addr,  sizeof(struct sockaddr)) == -1)
-	    THROW_PE("connect() failed\n");
-	PackageSocket ss(s);
-	ss.write("drone");
-	if(ss.readString(10) != "success") THROW_E("invalid overlord responce");
-	while(ss.canRead()) {
-	    //No command can be more then 1023 chars long
-		string command = ss.readString(1024);
-	    if(command == "quit") break;
-	    std::map<std::string, CommandHandler *>::iterator i = handlers.find(command);
-	    if(i == handlers.end()) ss.write("invalid command");
-	    else i->second->handle(ss);
-	}
+		struct hostent *host;
+		int s = socket(AF_INET,SOCK_STREAM,0);
+		if(s == -1) THROW_PE("socket() failed\n");
+		host = gethostbyname(hostName.c_str());
+		struct sockaddr_in server_addr;  
+		server_addr.sin_family = AF_INET;
+		server_addr.sin_port = htons(port);   
+		server_addr.sin_addr = *((struct in_addr *)host->h_addr);
+		if(connect(s, (struct sockaddr *)&server_addr,  sizeof(struct sockaddr)) == -1)
+			THROW_PE("connect() failed\n");
+		PackageSocket ss(s);
+		ss.write("drone");
+		if(ss.readString(10) != "success") THROW_E("invalid overlord responce");
+		while(ss.canRead()) {
+			string command = ss.readString(COMMAND_LENGTH);
+			if(command == "quit") break;
+			std::map<std::string, CommandHandler *>::iterator i = handlers.find(command);
+			if(i == handlers.end()) ss.write("invalid command");
+			else i->second->handle(ss);
+		}
     };
 };
 
@@ -104,11 +103,8 @@ int main(int argc, char ** argv) {
 			cout << cmdline << endl;
 			exit(0);
 		}
-		//if(vm.count("address") == 0) throw po::validation_error("address not specified.");
 		if(vm.count("proxyPath") == 0) throw po::validation_error("proxyPath not specified.");
 		if(vm.count("entriesPath") == 0) throw po::validation_error("entriesPath not specified.");
-		//if(vm.count("droneUser") == 0) throw po::validation_error("droneUser not specified.");
-		//if(vm.count("nobodyUser") == 0) throw po::validation_error("nobodyUser not specified.");
 	} catch(std::exception & e) {
 		cerr << "Argument error: " << e.what() << endl;
 		cerr << cmdline << endl;
