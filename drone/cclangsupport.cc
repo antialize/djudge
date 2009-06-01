@@ -16,15 +16,17 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#include "langsupport.hh"
-#include "saferun.hh"
-#include "results.hh"
 #include "apparmor.hh"
-#include "globals.hh"
 #include "error.hh"
-#include <sys/wait.h>
-#include <stdlib.h>
+#include "fs.hh"
+#include "globals.hh"
+#include "langsupport.hh"
+#include "results.hh"
+#include "saferun.hh"
 #include <iostream>
+#include <sstream>
+#include <stdlib.h>
+#include <sys/wait.h>
 using namespace std;
 
 class CCLangSupport: public LangSupport {
@@ -41,13 +43,9 @@ public:
 	string name() {return "cc";}
 	
 	void restrictRun(std::string name ,bool entryAccess) {
-		char cwd[1025];
-		getcwd(cwd,1024);
-		char buff[2048];
-		buff[0] = '\0';
-		string path=name;
-		if(path[0] != '/') path=string(cwd)+"/"+name;
-		if(entryAccess) sprintf(buff,"  %s/**    rw,\n",cwd);
+		string path = absolutePath(name);
+		string s;
+		if(entryAccess) s = "  " + getCWD() + "/**   rw,\n";
 		appArmorLoadProfile(
 			"#include <tunables/global>\n"
 			"%s.out {\n"
@@ -57,27 +55,18 @@ public:
 			"}\n",
 			path.c_str(),
 			path.c_str(),
-			buff);
+			s.c_str());
 	}
 			
 	void unrestrictRun(std::string name) {
-		char cwd[1025];
-		getcwd(cwd,1024);
-		char buff[2048];
-		string path=name;
-		if(path[0] != '/') path=string(cwd)+"/"+name;
-		sprintf(buff,"%s.out",path.c_str());
-		appArmorRemoveProfile(buff);
+		appArmorRemoveProfile(absolutePath(name+".out").c_str());
 	}
 
 	bool compile(std::string name, int user, int group, PackageSocket & s) {
-		string src=name+".cc";
-		string dst=name+".out";
+		string src=absolutePath(name+".cc");
+		string dst=absolutePath(name+".out");
 		float time=20;
-		char cwd[1025];
 		bool result=false;
-		if(getcwd(cwd,1024) == NULL) THROW_PE("getcwd() failed");
-		
 		std::string gpp=proxyPath+"/proxy_g++";
 		appArmorLoadProfile(
 			"#include <tunables/global>\n"
@@ -86,8 +75,8 @@ public:
 			"  %s                          r,\n"
 			"  /tmp/                       rw,\n"
 			"  /tmp/**                     rw,\n"
-			"  %s/%s                       r,\n"
-			"  %s/%s                       rw,\n"
+			"  %s                          r,\n"
+			"  %s                          rw,\n"
 			"  /usr/lib/gcc/*/*/cc1plus    rix,\n"
 			"  /usr/lib/gcc/*/*/collect2   rix,\n"
 			"  /usr/bin/as                 rix,\n"
@@ -98,9 +87,8 @@ public:
 			"  /usr/bin/g++*               rix,\n"
 			"}\n",
 			gpp.c_str(),gpp.c_str(),
-			cwd,src.c_str(),
-			cwd,dst.c_str());
-		
+			src.c_str(),
+			dst.c_str());
 		int p[2];
 		if(pipe(p) == -1) THROW_PE("pipe() failed");
 		pid_t f = fork();
