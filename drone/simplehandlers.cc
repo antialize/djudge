@@ -18,6 +18,7 @@
  */
 #include "commandhandler.hh"
 #include "error.hh"
+#include "fs.hh"
 #include "globals.hh"
 #include "results.hh"
 #include "validation.hh"
@@ -69,9 +70,8 @@ public:
 			s.write("invalid name");
 			return;
 		}
-		char buff2[1124];
-		sprintf(buff2,"rm -rf '%s/%s'",entriesPath.c_str(), name.c_str());
-		system(buff2);
+		std::string p=entriesPath + "/" + name;
+		rmrf(p.c_str());
 		s.write(XSTR(RUN_SUCCESS));
 		s.write("success");
 	};
