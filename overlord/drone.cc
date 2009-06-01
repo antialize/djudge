@@ -159,7 +159,7 @@ void Drone::run_(PackageSocket & s) {
 				delete j;
 		} catch(std::exception & e) {
 			JobManager::addJob(j);
-			throw e;
+			throw;
 		}
 		pthread_mutex_lock(&jobQueueLock);
 		if(jobQueue.empty()) JobManager::freeDrone(this);
@@ -174,7 +174,7 @@ void Drone::run(PackageSocket & s) {
 		d.run_(s);
 	} catch(std::exception & e) {
 		JobManager::unregisterDrone(&d);
-		throw e;
+		throw;
 	}
 	JobManager::unregisterDrone(&d);
 }

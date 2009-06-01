@@ -60,6 +60,9 @@ bool Client::handleCommand(const std::string & cmd, PackageSocket & s) {
 			s.write("Invalid entry name");
 			return true;
 		}
+		pthread_mutex_lock(&entriesMutex);
+		entries.erase(name);
+		pthread_mutex_unlock(&entriesMutex);
 		JobManager::addJob(dispose,this,name);
 		unlink((entriesPath+"/"+name).c_str());		
 		s.write(XSTR(RUN_SUCCESS));
@@ -107,6 +110,7 @@ bool Client::handleCommand(const std::string & cmd, PackageSocket & s) {
 		char buff[64];
 		strcpy(buff,(entriesPath+"/.tmpXXXXXX").c_str());
 		int f = mkstemp(buff);
+		if(f==-1) THROW_PE("mkstemp() failed");
 		s.readFD(f);
 		close(f);
 		if(!validateEntryName(name)) {
