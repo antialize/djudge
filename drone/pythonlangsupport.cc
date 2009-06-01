@@ -16,9 +16,12 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+#include "apparmor.hh"
+#include "fs.hh"
+#include "globals.hh"
 #include "langsupport.hh"
-#include "saferun.hh"
 #include "results.hh"
+#include "saferun.hh"
 #include <iostream>
 using namespace std;
 
@@ -35,8 +38,27 @@ public:
 	}
 	bool compile(std::string, int user, int group, PackageSocket & s) {return true;}
 	void restrictRun(std::string name ,bool entryAccess) {
+		string path = absolutePath(name);
+		string s;
+		string py=absolutePath(proxyPath+"/proxy_python");
+		if(entryAccess) s = "  " + getCWD() + "/**   rw,\n";
+		appArmorLoadProfile(
+			"#include <tunables/global>\n"
+			"%s {\n"
+			"  /usr/bin/python*            rix,\n"
+			"  #include <abstractions/base>\n"
+			"  #include <abstractions/python>\n"
+			"  %s                          r,\n"
+			"  %s"
+			"}\n",
+			py.c_str(),
+			path.c_str(),
+			s.c_str());
 	};
+	
 	void unrestrictRun(std::string name) {
+		string py=absolutePath(proxyPath+"/proxy_python");
+		appArmorRemoveProfile(py.c_str());		
 	};
 
 	int run(std::string name, 
@@ -47,7 +69,8 @@ public:
 			int user,
 		    int group) {
 		string path=name+".py";
-		return saferun(in,out,err,memoryLimit,outputLimit,user,group,time,0,"python","python",path.c_str(),NULL);
+		string py=proxyPath+"/proxy_python";
+		return saferun(in,out,err,memoryLimit,outputLimit,user,group,time,0,py.c_str(),py.c_str(),path.c_str(),NULL);
 	}
 	float rank() {return 99;}
 	string name() {return "python";}
