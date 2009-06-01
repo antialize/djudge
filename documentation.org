@@ -77,6 +77,22 @@ escaped as "\\\n" and "\\\\" respectivly.
 
 * Entry
 
+** The config.ini file
+The "config.ini" file must hold the configuration for the entry 
+
+- memory :: Memory limit in megabytes, default: 100mb.
+- output :: Output limit in kilobytes, default: 50mb. Note this is
+            realy only relavant if a special judge is used.
+- timebase :: Let x be the number of seconds, the reference
+              solution took to run on the given input, then the time
+              limit for the given problem will be 
+			  time := timebase + timescale x.
+- timescale :: see [[timebase]], default 0.0;
+- displayfailedinput :: If true, display the input on which a user
+     fails, to the user, default: false.
+- languages :: Comma seperated list of allowed languages, default:
+               all.
+
 
 * GNU Free Documentation License
 #+INCLUDE: "fdl.txt" qoute
