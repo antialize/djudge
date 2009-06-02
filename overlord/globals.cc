@@ -19,5 +19,4 @@
 #include "globals.hh"
 
 std::set<std::string> entries;
-pthread_mutex_t entriesMutex;
 std::string entriesPath;

@@ -23,9 +23,8 @@
 #include <iostream>
 using namespace std;
 
-pthread_mutex_t JobManager::mutex;
-pthread_cond_t JobManager::jobCond;
-pthread_cond_t JobManager::droneCond;
+Cond JobManager::jobCond;
+Cond JobManager::droneCond;
 deque<Drone *> JobManager::freeDrones;
 deque<Job *> JobManager::jobQueue;
 set<Drone *> JobManager::drones;
@@ -33,13 +32,9 @@ uint64_t JobManager::idc;
 
 void JobManager::init() {
 	idc=0;
-	pthread_mutex_init(&mutex,NULL);
-	pthread_cond_init(&jobCond,NULL);
-	pthread_cond_init(&droneCond,NULL);
 }
 
 uint64_t JobManager::addJob(Job * i) {
-	pthread_mutex_lock(&mutex);
 	uint64_t _=i->id;
 	if(i->type == push || i->type == dispose) {
 		for(std::set<Drone *>::iterator _ = drones.begin(); _ != drones.end(); ++_) {
@@ -56,18 +51,15 @@ uint64_t JobManager::addJob(Job * i) {
 	} else {
 		cout << "JobManager: Added job " << i->id << " to the job queue" << endl;
 		jobQueue.push_back(i);
-		pthread_cond_signal(&jobCond);
+		jobCond.signal();
 	}
-	pthread_mutex_unlock(&mutex);
 	return _;
 }
 
 uint64_t JobManager::addJob(JobType type, Client * client, const std::string & a, 
 							const std::string & b, const std::string & c) {
 	Job * j = new Job();
-	pthread_mutex_lock(&mutex);
 	j->id = idc++;
-	pthread_mutex_unlock(&mutex);
 	j->type = type;
 	j->client = client;
 	j->a = a;
@@ -77,46 +69,37 @@ uint64_t JobManager::addJob(JobType type, Client * client, const std::string & a
 }
 
 void JobManager::registerDrone(Drone *d) {
-	pthread_mutex_lock(&mutex);
 	drones.insert(d);
-	freeDrones.push_back(d);
-	pthread_cond_signal(&droneCond);
-	pthread_mutex_unlock(&mutex);
+	droneCond.signal();
 }
 
 
 void JobManager::unregisterDrone(Drone *d) {
-	pthread_mutex_lock(&mutex);
 	drones.erase(d);
 	for(std::deque<Drone *>::iterator i = freeDrones.begin(); i != freeDrones.end(); ++i) {
 		if(*i != d) continue;
+		cout << "d unregister drone Hay " << d << endl;
 		freeDrones.erase(i);
 		break;
 	}
-	pthread_mutex_unlock(&mutex);
+	cout << "f unregister drone " << d << endl;
 }
 
 
 void JobManager::freeDrone(Drone * d) {
-	pthread_mutex_lock(&mutex);
 	freeDrones.push_back(d);
-	pthread_cond_signal(&droneCond);
-	pthread_mutex_unlock(&mutex);
+	droneCond.signal();
 }
 
 void JobManager::run() {
-	pthread_mutex_lock(&mutex);
 	while(true) {
-		while(jobQueue.empty()) pthread_cond_wait(&jobCond, &mutex);
+		while(jobQueue.empty()) jobCond.wait();
 		Job * j = jobQueue.front();
 		jobQueue.pop_front();
-		while(freeDrones.empty()) pthread_cond_wait(&droneCond, &mutex);
+		while(freeDrones.empty()) droneCond.wait();
 		Drone * d = freeDrones.front();
 		freeDrones.pop_front();
-		pthread_mutex_unlock(&mutex);
 		cout << "Jobmanager: Pushing job " << j->id << " to " << d << endl;
 		d->addJob(j);
-		pthread_mutex_lock(&mutex);
 	}
-	pthread_mutex_unlock(&mutex);
 }

@@ -20,6 +20,7 @@
 #include "drone.hh"
 #include "error.hh"
 #include "globals.hh"
+#include "biglock.hh"
 #include "packagesocket.hh"
 #include "string.h"
 #include <arpa/inet.h>
@@ -51,18 +52,19 @@ void* dispatch(void * _) {
 	printf("Connect\n");
 	try {
 		PackageSocket ss(cs);
-		string type=ss.readString(20);
+		string type;
+		ULCALL(ss.readString(20));
 		if(type == "syncclient") {
-			ss.write("success");
+			ULCALL(ss.write("success"));
 			SyncClient::run(ss);
 		} else if(type == "asyncclient") {
-			ss.write("success");
+			ULCALL(ss.write("success"));
 			ASyncClient::run(ss);
 		} else if(type == "drone") {
-			ss.write("success");
+			ULCALL(ss.write("success"));
 			Drone::run(ss);
 		} else {
-			ss.write("invalid type");
+			ULCALL(ss.write("invalid type"));
 		}
 	} catch(std::exception& e) {
 		cerr << "Exception: " << e.what() << endl;
@@ -90,7 +92,7 @@ void runServer(int port) {
 	listen(s, 128);
 	while(true) {
 		socklen_t _=sizeof(a);
-		ptrdiff_t ss =accept(s,(struct sockaddr*)&a,&_);
+		ptrdiff_t ss = ULCALL(accept(s,(struct sockaddr*)&a,&_));
 		pthread_t thread;
 		pthread_create(&thread,NULL, dispatch, reinterpret_cast<void *>(ss));
 	}
@@ -102,6 +104,7 @@ void * jobManagerMain(void *) {
 }
 
 int main(int argc, char ** argv) {
+	BIGLOCK;
 	int port=13049;
 	po::options_description cmdline("Drone overload");
 	cmdline.add_options() 
@@ -129,8 +132,6 @@ int main(int argc, char ** argv) {
 		entries.insert(e->d_name);
 	}
 	closedir(d);
-	pthread_mutex_init(&entriesMutex,NULL);
-
 	ASyncClient::init();
 	JobManager::init();
 	pthread_t thread;

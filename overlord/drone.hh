@@ -19,20 +19,17 @@
 #ifndef __drone_hh__
 #define __drone_hh__
 
+#include "biglock.hh"
 #include "jobmanager.hh"
 #include "packagesocket.hh"
-#include <pthread.h>
 #include <set>
 
 class Drone {
 private:
-	pthread_mutex_t jobQueueLock;
-	pthread_cond_t jobQueueCond;
+	Cond jobQueueCond;
 	std::deque<Job *> jobQueue;
 	std::set<std::string> myEntries;
 public:
-	Drone();
-	~Drone();
 	int import(PackageSocket & s, const std::string & name, const std::string & path, std::string & msg);
 	
 	void addJob(Job * job);

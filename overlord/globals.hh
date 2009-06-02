@@ -21,10 +21,8 @@
 
 #include <string>
 #include <set>
-#include <pthread.h>
 
 extern std::set<std::string> entries;
-extern pthread_mutex_t entriesMutex;
 extern std::string entriesPath;
 
 #endif //__globals_hh__

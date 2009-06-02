@@ -18,6 +18,7 @@
  */
 #ifndef __jobmanager_hh__
 #define __jobmanager_hh__
+#include "biglock.hh"
 #include <deque>
 #include <string>
 #include <set>
@@ -43,10 +44,9 @@ struct Job {
 
 class JobManager {
 private:
+	static Cond jobCond;
+	static Cond droneCond;
 	static uint64_t idc;
-	static pthread_mutex_t mutex;
-	static pthread_cond_t jobCond;
-	static pthread_cond_t droneCond;
 public:
 	static std::deque<Drone *> freeDrones;
 	static std::deque<Job *> jobQueue;
@@ -59,13 +59,5 @@ public:
 	static void unregisterDrone(Drone *d);
 	static void run();
 };
-
-/*class JobManager {
-private:
-public:
-	void addFreeDrone(Drone *);
-	void removeDrone(Drone *);
-	uint64_t addJob(JobType type, std::string payload);
-	};*/
 
 #endif //__jobmanager_hh__

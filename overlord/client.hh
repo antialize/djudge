@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#include <pthread.h>
+#include "biglock.hh"
 #include "packagesocket.hh"
 #include <map>
 #include <vector>
@@ -32,13 +32,9 @@ public:
 
 class ASyncClient: public Client {
 private:
-	static pthread_mutex_t cookieMapMutex;
 	static std::map<std::string, ASyncClient *> cookieMap;
-	pthread_mutex_t resultMutex;
 	std::vector<Job*> results;
 public:
-	ASyncClient();
-	~ASyncClient();
 	static void run(PackageSocket & s);
 	static void init();
 	virtual void jobHook(PackageSocket & s, uint64_t jobid);
@@ -48,12 +44,10 @@ public:
 
 class SyncClient: public Client {
 private:
-	pthread_mutex_t resultMutex;
-	pthread_cond_t resultCond;
+	Cond resultCond;
 	Job * job;
 public:
 	SyncClient();
-	~SyncClient();
 	static void run(PackageSocket & s);
 	virtual void jobHook(PackageSocket & s, uint64_t jobid);
 	virtual void jobDone(Job * j);
