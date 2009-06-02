@@ -26,4 +26,6 @@ int         nobodyUser;
 int         nobodyGroup;
 std::multimap<float, LangSupport *> langByRank;
 std::map<std::string, LangSupport *> langByName;
-
+float       maxTime;
+uint64_t    maxOutput;
+uint64_t    maxMemory;

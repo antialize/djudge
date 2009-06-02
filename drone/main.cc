@@ -77,6 +77,9 @@ int main(int argc, char ** argv) {
 	std::string host="127.0.0.1";
 	std::string droneUserName="drone";
 	std::string nobodyUserName="nobody";
+	maxTime = 60*5;
+	maxOutput = 1024*1024*1024;
+    maxMemory = 256*1024*1024;
 	
 	po::options_description common("");
 	common.add_options()
@@ -85,7 +88,10 @@ int main(int argc, char ** argv) {
 		("proxyPath", po::value<string>(&proxyPath), "The path to the directory containing the proxy executables.")
 		("entriesPath", po::value<string>(&entriesPath), "The path to the entries directory.")
 		("droneUser", po::value<string>(&droneUserName), "The username of the drone user.")
-		("nobodyUser", po::value<string>(&nobodyUserName), "The username of the nobody user.");
+		("nobodyUser", po::value<string>(&nobodyUserName), "The username of the nobody user.")
+		("maxTime",po::value<float>(&maxTime), "The maximum time we want a program to run EVER in seconds.")
+		("maxOutput",po::value<uint64_t>(&maxOutput), "The maximum number of bytes a program is EVER allowed to output.")
+		("maxMemory",po::value<uint64_t>(&maxMemory), "The maximum number of bytes of memory a program is EVER allowd to use.");
 	
 	po::options_description cmdline("Judge drone client");
 	cmdline.add_options()

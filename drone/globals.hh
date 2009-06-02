@@ -25,5 +25,8 @@ extern int         droneUser;
 extern int         nobodyUser;
 extern int         droneGroup;
 extern int         nobodyGroup;
+extern float       maxTime;
+extern uint64_t    maxOutput;
+extern uint64_t    maxMemory;
 
 #endif //__globals_hh__

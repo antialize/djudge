@@ -121,9 +121,9 @@ public:
 				LangSupport * l = i->second;
 				if(!l->hasSource("inputgenerator")) continue;
 				if(!l->compile("inputgenerator", droneUser, droneGroup, s)) return;
-				float time=60;
+				float time=maxTime;
 				l->restrictRun("inputgenerator", true);
-				int r = l->run("inputgenerator", 0, 1, 2, 100 * 1024 * 1024, 0, time, droneUser, droneGroup);
+				int r = l->run("inputgenerator", 0, 1, 2, maxMemory, maxOutput, time, droneUser, droneGroup);
 				if(r != RUN_SUCCESS) {
 					rmrf(p.c_str());
 					char buff[1024];
@@ -150,11 +150,11 @@ public:
 					if(e->d_name[0] == '.' || e->d_name[0] == '\0') continue;
 					char buff[1024];
 					sprintf(buff,"inputs/%s",e->d_name);
-					float time=60;
+					float time=maxTime;
 					int in=open(buff,O_RDONLY);
 					sprintf(buff,"outputs/%s",e->d_name);
 					int out=open(buff,O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
-					int r = l->run("reference",in,out,2,1024*1024*100,1024*1024*100,time, droneUser, droneGroup);
+					int r = l->run("reference",in,out,2,maxMemory, maxOutput,time, droneUser, droneGroup);
 					printf("Running %s reference solution on %s, finished in time %f with result %d\n",
 						   l->name().c_str(), e->d_name, time, r);
 					close(in);
