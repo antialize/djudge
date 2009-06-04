@@ -48,12 +48,12 @@ void handler(int) {
 };
 
 void* dispatch(void * _) {
+	LOCK;
 	ptrdiff_t cs = reinterpret_cast<ptrdiff_t>(_);
 	printf("Connect\n");
 	try {
 		PackageSocket ss(cs);
-		string type;
-		ULCALL(ss.readString(20));
+		string type = ULCALL(ss.readString(20));
 		if(type == "syncclient") {
 			ULCALL(ss.write("success"));
 			SyncClient::run(ss);
@@ -99,6 +99,7 @@ void runServer(int port) {
 };
 
 void * jobManagerMain(void *) {
+    LOCK;
 	JobManager::run();
 	return NULL;
 }

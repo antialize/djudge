@@ -22,17 +22,18 @@
 #include "biglock.hh"
 #include "jobmanager.hh"
 #include "packagesocket.hh"
+#include "ptr.hh"
 #include <set>
 
-class Drone {
+class Drone: public PtrBase {
 private:
 	Cond jobQueueCond;
-	std::deque<Job *> jobQueue;
+	std::deque<ptr<Job> > jobQueue;
 	std::set<std::string> myEntries;
 public:
 	int import(PackageSocket & s, const std::string & name, const std::string & path, std::string & msg);
 	
-	void addJob(Job * job);
+	void addJob(ptr<Job> & job);
 	void run_(PackageSocket & s); 
 	static void run(PackageSocket & s);
 };

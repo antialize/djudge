@@ -19,9 +19,11 @@
 #ifndef __jobmanager_hh__
 #define __jobmanager_hh__
 #include "biglock.hh"
+#include "ptr.hh"
+#include <boost/shared_ptr.hpp>
 #include <deque>
-#include <string>
 #include <set>
+#include <string>
 
 enum JobType {
 	import,
@@ -33,30 +35,30 @@ enum JobType {
 class Drone;
 class Client;
 
-struct Job {
+struct Job: public PtrBase {
 	JobType type;
 	uint64_t id;
-	Client * client;
+	ptr<Client> client;
 	std::string a,b,c;
 	int result;
 	std::string msg; 
 };
 
-class JobManager {
+class JobManager: public PtrBase {
 private:
 	static Cond jobCond;
 	static Cond droneCond;
 	static uint64_t idc;
 public:
-	static std::deque<Drone *> freeDrones;
-	static std::deque<Job *> jobQueue;
-	static std::set<Drone *> drones;
+	static std::deque<ptr<Drone> > freeDrones;
+	static std::deque<ptr<Job> > jobQueue;
+	static std::set<ptr<Drone> > drones;
 	static void init();
-	static uint64_t addJob(Job * j);
-	static uint64_t addJob(JobType type, Client * c, const std::string & payload1, const std::string & payload2="", const std::string & payload3="");  
-	static void freeDrone(Drone * d);
-	static void registerDrone(Drone *d);
-	static void unregisterDrone(Drone *d);
+	static uint64_t addJob(ptr<Job> & j);
+	static uint64_t addJob(JobType type, ptr<Client> & c, const std::string & payload1, const std::string & payload2="", const std::string & payload3="");  
+	static void freeDrone(ptr<Drone> & d);
+	static void registerDrone(ptr<Drone> & d);
+	static void unregisterDrone(ptr<Drone> & d);
 	static void run();
 };
 

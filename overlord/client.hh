@@ -18,37 +18,39 @@
  */
 #include "biglock.hh"
 #include "packagesocket.hh"
+#include "ptr.hh"
 #include <map>
 #include <vector>
 class Job;
 
-class Client {
+class Client: public PtrBase {
 public:
 	virtual void jobHook(PackageSocket & s, uint64_t jobid) = 0;
-	virtual void jobDone(Job * j) = 0;
+	virtual void jobDone(ptr<Job> & job) = 0;
 	virtual bool handleCommand(const std::string & cmd, PackageSocket & s);
+	virtual ~Client() {};
 	void run_(PackageSocket & s);
 };
 
 class ASyncClient: public Client {
 private:
-	static std::map<std::string, ASyncClient *> cookieMap;
-	std::vector<Job*> results;
+	static std::map<std::string, ptr<Client> > cookieMap;
+	std::vector<ptr<Job> > results;
 public:
 	static void run(PackageSocket & s);
 	static void init();
 	virtual void jobHook(PackageSocket & s, uint64_t jobid);
-	virtual void jobDone(Job * j);
+	virtual void jobDone(ptr<Job> & j);
 	virtual bool handleCommand(const std::string & cmd, PackageSocket & s);
 };
 
 class SyncClient: public Client {
 private:
 	Cond resultCond;
-	Job * job;
+	ptr<Job> job;
 public:
 	SyncClient();
 	static void run(PackageSocket & s);
 	virtual void jobHook(PackageSocket & s, uint64_t jobid);
-	virtual void jobDone(Job * j);
+	virtual void jobDone(ptr<Job> & j);
 };

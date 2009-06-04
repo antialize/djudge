@@ -22,6 +22,7 @@
 #include "langsupport.hh"
 #include "packagesocket.hh"
 #include "validation.hh"
+#include <signal.h>
 #include <boost/program_options.hpp>
 #include <cstring>
 #include <fstream>
@@ -56,7 +57,8 @@ public:
 			THROW_PE("connect() failed\n");
 		PackageSocket ss(s);
 		ss.write("drone");
-		if(ss.readString(10) != "success") THROW_E("invalid overlord responce");
+		string r = ss.readString(10);
+		if(r != "success") THROW_E("invalid overlord responce: %s,", r.c_str());
 		while(ss.canRead()) {
 			string command = ss.readString(COMMAND_LENGTH);
 			if(command == "quit") break;
@@ -80,6 +82,8 @@ int main(int argc, char ** argv) {
 	maxTime = 60*5;
 	maxOutput = 1024*1024*1024;
     maxMemory = 256*1024*1024;
+
+ 	signal(SIGPIPE, SIG_IGN);
 	
 	po::options_description common("");
 	common.add_options()

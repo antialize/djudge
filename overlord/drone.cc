@@ -30,9 +30,12 @@
 #include <sys/types.h>
 using namespace std;
 
-void Drone::addJob(Job * job) {
+void Drone::addJob(ptr<Job> & job) {
+	cout << "A" << endl;
 	jobQueue.push_back(job);
+	cout << "B" << endl;
 	jobQueueCond.signal();
+	cout << "C" << endl;
 }
 
 int Drone::import(PackageSocket & s, const std::string & name, const std::string & path, std::string & msg) {
@@ -59,6 +62,7 @@ int Drone::import(PackageSocket & s, const std::string & name, const std::string
 
 
 void Drone::run_(PackageSocket & s) {
+	ptr<Drone> self=this;
 	s.write("list");
 	while(s.canRead()) {
 		string entry = ULCALL(s.readString(ENTRY_NAME_LENGTH));
@@ -67,7 +71,7 @@ void Drone::run_(PackageSocket & s) {
 	}
 	while(s.canRead()) {
 		cout << "Drone " << this << " is waiting for a job" << endl;
-		jobQueueCond.timedWait(2);
+		jobQueueCond.timedWait(10);
 		if(jobQueue.empty()) {
 			if(!s.canRead()) break;
 			bool p;
@@ -78,7 +82,7 @@ void Drone::run_(PackageSocket & s) {
 			if(!p) break;
 			continue;
 		}
-		Job * j = jobQueue.back();
+		ptr<Job> j = jobQueue.back();
 		jobQueue.pop_back();
 		cout << "Drone " << this << ": Processing job " << j->id << endl;
 		try {
@@ -142,28 +146,26 @@ void Drone::run_(PackageSocket & s) {
 				j->msg = "Not implemented";
 			}
 			cout << "Drone " << this << ": Finished job " << j->id << "  with result " << j->result << endl;
-			if(j->client) 
+			if(j->client != NULL) 
 				j->client->jobDone(j);
-			else 
-				delete j;
 		} catch(std::exception & e) {
 			cout << "hat " << endl;
 			JobManager::addJob(j);
 			throw;
 		}
-		if(jobQueue.empty()) JobManager::freeDrone(this);
+		if(jobQueue.empty()) JobManager::freeDrone(self);
 	}
 	cout << "Drone " << this << " died" << endl;
 }
 
 void Drone::run(PackageSocket & s) {
-	Drone d;
-	JobManager::registerDrone(&d);
+	ptr<Drone> d = new Drone;
+	JobManager::registerDrone(d);
 	try {
-		d.run_(s);
+		d->run_(s);
 	} catch(std::exception & e) {
-		JobManager::unregisterDrone(&d);
+		JobManager::unregisterDrone(d);
 		throw;
 	}
-	JobManager::unregisterDrone(&d);
+	JobManager::unregisterDrone(d);
 }

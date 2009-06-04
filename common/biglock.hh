@@ -47,4 +47,11 @@ public:
 	~BigLock();
 };
 #define BIGLOCK BigLock __biglock__
+
+class Lock {
+public:
+	Lock();
+	~Lock();
+};
+#define LOCK Lock __lock__
 #endif //__biglock_hh__

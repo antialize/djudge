@@ -25,20 +25,20 @@ using namespace std;
 
 Cond JobManager::jobCond;
 Cond JobManager::droneCond;
-deque<Drone *> JobManager::freeDrones;
-deque<Job *> JobManager::jobQueue;
-set<Drone *> JobManager::drones;
+deque<ptr<Drone> > JobManager::freeDrones;
+deque<ptr<Job> > JobManager::jobQueue;
+set<ptr<Drone> > JobManager::drones;
 uint64_t JobManager::idc;
 
 void JobManager::init() {
 	idc=0;
 }
 
-uint64_t JobManager::addJob(Job * i) {
+uint64_t JobManager::addJob(ptr<Job> & i) {
 	uint64_t _=i->id;
 	if(i->type == push || i->type == dispose) {
-		for(std::set<Drone *>::iterator _ = drones.begin(); _ != drones.end(); ++_) {
-			Job * j = new Job();
+		for(std::set<ptr<Drone> >::iterator _ = drones.begin(); _ != drones.end(); ++_) {
+			ptr<Job> j = new Job();
 			j->type = i->type;
 			j->id = 0;
 			j->client = NULL;
@@ -47,7 +47,6 @@ uint64_t JobManager::addJob(Job * i) {
 			j->c = i->c;
 			(*_)->addJob(j);
 		}		
-		delete i;
 	} else {
 		cout << "JobManager: Added job " << i->id << " to the job queue" << endl;
 		jobQueue.push_back(i);
@@ -56,9 +55,9 @@ uint64_t JobManager::addJob(Job * i) {
 	return _;
 }
 
-uint64_t JobManager::addJob(JobType type, Client * client, const std::string & a, 
+uint64_t JobManager::addJob(JobType type, ptr<Client> & client, const std::string & a, 
 							const std::string & b, const std::string & c) {
-	Job * j = new Job();
+	ptr<Job> j = new Job();
 	j->id = idc++;
 	j->type = type;
 	j->client = client;
@@ -68,25 +67,25 @@ uint64_t JobManager::addJob(JobType type, Client * client, const std::string & a
 	return addJob(j);
 }
 
-void JobManager::registerDrone(Drone *d) {
+void JobManager::registerDrone(ptr<Drone> & d) {
 	drones.insert(d);
+	freeDrones.push_back(d);
 	droneCond.signal();
 }
 
-
-void JobManager::unregisterDrone(Drone *d) {
+void JobManager::unregisterDrone(ptr<Drone> & d) {
 	drones.erase(d);
-	for(std::deque<Drone *>::iterator i = freeDrones.begin(); i != freeDrones.end(); ++i) {
+	for(std::deque<ptr<Drone> >::iterator i = freeDrones.begin(); i != freeDrones.end(); ++i) {
 		if(*i != d) continue;
-		cout << "d unregister drone Hay " << d << endl;
+		cout << "d unregister drone Hay " << d.get() << endl;
 		freeDrones.erase(i);
 		break;
 	}
-	cout << "f unregister drone " << d << endl;
+	cout << "f unregister drone " << d.get() << endl;
 }
 
 
-void JobManager::freeDrone(Drone * d) {
+void JobManager::freeDrone(ptr<Drone> & d) {
 	freeDrones.push_back(d);
 	droneCond.signal();
 }
@@ -94,12 +93,13 @@ void JobManager::freeDrone(Drone * d) {
 void JobManager::run() {
 	while(true) {
 		while(jobQueue.empty()) jobCond.wait();
-		Job * j = jobQueue.front();
+		ptr<Job> j = jobQueue.front();
 		jobQueue.pop_front();
 		while(freeDrones.empty()) droneCond.wait();
-		Drone * d = freeDrones.front();
+		ptr<Drone> d = freeDrones.front();
 		freeDrones.pop_front();
-		cout << "Jobmanager: Pushing job " << j->id << " to " << d << endl;
+		cout << "Jobmanager: Pushing job " << j->id << " to " << d.get() << endl;
 		d->addJob(j);
+		cout << "Push done" << endl;
 	}
 }

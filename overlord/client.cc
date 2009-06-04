@@ -26,9 +26,10 @@
 #include <sstream>
 #include <stdlib.h>
 using namespace std;
-std::map<std::string, ASyncClient *> ASyncClient::cookieMap;
+std::map<std::string, ptr<Client> > ASyncClient::cookieMap;
 
 bool Client::handleCommand(const std::string & cmd, PackageSocket & s) {
+	ptr<Client> self=this;
 	if(cmd == "status") {
 		ostringstream res;
 		res << "The overlord is up and running" << endl
@@ -67,7 +68,7 @@ bool Client::handleCommand(const std::string & cmd, PackageSocket & s) {
 			}
 		}
 		entries.erase(name);
-		JobManager::addJob(dispose,this,name);
+		JobManager::addJob(dispose,self,name);
 		unlink((entriesPath+"/"+name).c_str());		
 		{UNLOCK;
 			s.write(XSTR(RUN_SUCCESS));
@@ -91,7 +92,7 @@ bool Client::handleCommand(const std::string & cmd, PackageSocket & s) {
 			}
 			return true;
 		}
-		JobManager::addJob(push,this,name);
+		JobManager::addJob(push,self,name);
 		{UNLOCK;
 			s.write(XSTR(RUN_SUCCESS));
 			s.write("Lasily pushing entry");
@@ -117,7 +118,7 @@ bool Client::handleCommand(const std::string & cmd, PackageSocket & s) {
 			unlink(buff);
 			return true;
 		}
-		uint64_t id = JobManager::addJob(judge,this,name,lang,buff);
+		uint64_t id = JobManager::addJob(judge,self,name,lang,buff);
 		jobHook(s,id);
 	} else if(cmd == "import") {
 		string name=ULCALL(s.readString(ENTRY_NAME_LENGTH));
@@ -144,7 +145,7 @@ bool Client::handleCommand(const std::string & cmd, PackageSocket & s) {
 			unlink(buff);
 			return true;
 		} 
-		uint64_t id = JobManager::addJob(import,this,name,buff);
+		uint64_t id = JobManager::addJob(import,self,name,buff);
 		jobHook(s,id);
 	} else {
 		UNLOCK;
@@ -163,7 +164,7 @@ void Client::run_(PackageSocket & s) {
 
 void ASyncClient::run(PackageSocket & s) {
 	string cookie = ULCALL(s.readString(COOKIE_LENGTH));
-	ASyncClient * c;
+	ptr<Client> c;
 	if(cookieMap.count(cookie) == 0) 
 		c = cookieMap[cookie] = new ASyncClient();
 	else 
@@ -182,13 +183,13 @@ void ASyncClient::jobHook(PackageSocket & s, uint64_t jobid) {
 	}
 }
 
-void ASyncClient::jobDone(Job * j) {
+void ASyncClient::jobDone(ptr<Job> & j) {
 	results.push_back(j);
 }
 
 bool ASyncClient::handleCommand(const std::string & cmd, PackageSocket & s) {
 	if(cmd == "pullresults") {
-		std::vector<Job*> res(results.begin(), results.end());
+		std::vector<ptr<Job> > res(results.begin(), results.end());
 		results.clear();
 		{UNLOCK;
 			for(size_t i=0; i < res.size(); ++i) {
@@ -197,8 +198,7 @@ bool ASyncClient::handleCommand(const std::string & cmd, PackageSocket & s) {
 				r << res[i]->result;
 				s.write(id.str());
 				s.write(r.str());
-				s.write(results[i]->msg);
-				delete(results[i]);
+				s.write(res[i]->msg);
 			}
 			s.write("");
 		}
@@ -207,19 +207,17 @@ bool ASyncClient::handleCommand(const std::string & cmd, PackageSocket & s) {
 		return Client::handleCommand(cmd,s);
 }
 
-SyncClient::SyncClient() {
-	job=NULL;
-}
+SyncClient::SyncClient() {}
 
 
 void SyncClient::run(PackageSocket & s) {
-	SyncClient c;
-	c.run_(s);
+	ptr<Client> c = new SyncClient();
+	c->run_(s);
 }
 
 void SyncClient::jobHook(PackageSocket & s, uint64_t) {
 	while(job == NULL) resultCond.wait();
-	Job * j=job;
+	ptr<Job> j=job;
 	job=NULL;
 	ostringstream r;
 	r << j->result;
@@ -227,10 +225,9 @@ void SyncClient::jobHook(PackageSocket & s, uint64_t) {
 		s.write(r.str());
 		s.write(j->msg);
 	}
-	delete j;
 }
 
-void SyncClient::jobDone(Job * j) {
+void SyncClient::jobDone(ptr<Job> & j) {
 	job=j;
 	resultCond.signal();
 }
