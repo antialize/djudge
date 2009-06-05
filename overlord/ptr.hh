@@ -18,43 +18,36 @@
  */
 #ifndef __ptr_hh__
 #define __ptr_hh__
+#include <iostream>
+#include <sstream>
+#include <boost/intrusive_ptr.hpp>
 
 class PtrBase {
 public:
 	size_t refcount;
 	inline PtrBase(): refcount(0) {}
 	virtual ~PtrBase() {};
-};
-
-template <class T> 
-class ptr {
-private:
-	T * p;
-public:
-	ptr(): p(NULL) {};
-	void set(T * x) {
-		if(x == p) return;
-		if(p != NULL) {
-			p->refcount--;
-			//if(p->refcount == 0) delete p;
-		}
-		p = x;
-		if(p) x->refcount++;
+	virtual std::string repr() {
+		std::ostringstream s;
+		s << this;
+		return s.str();
 	}
-	ptr(T * x): p(NULL) {set(x);};
-	~ptr() {set(NULL);}
-	ptr<T> & operator = (ptr<T> & o) {set(o.p); return *this;}
-	ptr<T> & operator = (T * p) {set(p); return *this;}
-	bool operator == (const ptr<T> & o) const {return p==o.p;}
-	bool operator != (const ptr<T> & o) const {return p!=o.p;}
-	bool operator == (const T * o) const {return p==o;}
-	bool operator != (const T * o) const {return p!=o;}
-	bool operator < (const ptr<T> & o) const {return p<o.p;}
-	T * get() {return p;}
-	T & operator* () const {return *p;}
-	T * operator-> () const {return p;}
 };
 
+template <class T>
+class ptr: public boost::intrusive_ptr<T> {
+public:
+	ptr(): boost::intrusive_ptr<T>() {};
+	ptr(T * b,bool addref=true): boost::intrusive_ptr<T>(b,addref) {};
+};
 
+inline void intrusive_ptr_release(PtrBase * x) {
+	x->refcount--;
+	if(x->refcount == 0) delete x;
+}
+
+inline void intrusive_ptr_add_ref(PtrBase * x) {
+	x->refcount++;
+}
 
 #endif //__ptr_hh__
