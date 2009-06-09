@@ -23,6 +23,7 @@ using namespace std;
 #include "globals.hh"
 #include "langsupport.hh"
 #include "results.hh"
+#include "rwap.hh"
 #include <dirent.h>
 #include <fcntl.h>
 #include <iostream>
@@ -31,7 +32,6 @@ using namespace std;
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
-
 
 int judgemain(int out) {
 	char a[10240];
@@ -87,18 +87,18 @@ public:
 			if(langByName.count(language) == 0) THROW_E("Invalid language");
 			LangSupport * l = langByName[language];
 			string base = tempnam("/tmp","djudge");
-			int fd = open(l->sourceName(base).c_str(), O_CREAT | O_TRUNC | O_WRONLY, S_IRUSR | S_IWUSR);
+			file fd = open(l->sourceName(base).c_str(), O_CREAT | O_TRUNC | O_WRONLY, S_IRUSR | S_IWUSR);
 			if(fd == -1) THROW_PE("open() failed");
 			if(fchown(fd, nobodyUser, nobodyGroup) == -1) THROW_PE("fchown() failed");
 			s.readFD(fd);
-			close(fd);
+			fd.close();
 			cout << "===========> Judging " << entry << " <==============" << endl;
 			bool r = l->compile(base, nobodyUser ,nobodyGroup,s);
 			l->removeSource(base);
 			if(r == false) return;
-			string dir=entriesPath + "/" + entry;
-			if(chdir(dir.c_str()) == -1) THROW_PE("chdir() failed");
- 			DIR * d = opendir("inputs");
+			string di=entriesPath + "/" + entry;
+			if(chdir(di.c_str()) == -1) THROW_PE("chdir() failed");
+ 			dir d = opendir("inputs");
 			if(d == NULL)  {
 				s.write(XSTR(RUN_INTERNAL_ERROR));
 				s.write("Unable to open input");
@@ -114,26 +114,28 @@ public:
  				sprintf(input,"inputs/%s",e->d_name);
  				char output[1024];
  				sprintf(output,"outputs/%s",e->d_name);
- 				int in1=open(input,O_RDONLY);
+ 				file in1=open(input,O_RDONLY);
  				if(in1 == -1) THROW_PE("open() failed\n");
- 				int in2=open(input,O_RDONLY);
+ 				file in2=open(input,O_RDONLY);
  				if(in2 == -1) THROW_PE("open() failed\n");
- 				int out=open(output,O_RDONLY);
+ 				file out=open(output,O_RDONLY);
 				int p[2];
  				if(pipe(p) == -1) THROW_PE("pipe() failed");
+				file pread=p[0];
+				file pwrite=p[1];
  				int judge = fork();
 				if(judge == 0) {
- 					close(in1);
- 					close(p[1]);
-					dup2(p[0],0);
+					in1.close();
+					pwrite.close();
+					dup2(pread,0);
 					judgemain(out);
 					exit(3);
 				}
  				if(judge == -1) THROW_PE("fork() failed");
 				float time=10;
-				int r = l->run(base, in1, p[1], 2 , 1024*1024*128, 0, time, nobodyUser, nobodyGroup);
-				close(in1);
-				close(p[1]);
+				int r = l->run(base, in1, pwrite, 2 , 1024*1024*128, 0, time, nobodyUser, nobodyGroup);
+				in1.close();
+				pwrite.close();
 				int s;
 				waitpid(judge,&s,0);
 				if(r != 0) {

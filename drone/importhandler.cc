@@ -23,6 +23,7 @@
 #include "globals.hh"
 #include "langsupport.hh"
 #include "results.hh"
+#include "rwap.hh"
 #include <boost/program_options.hpp>
 #include <cstdio>
 #include <cstdlib>
@@ -51,8 +52,7 @@ public:
 			umask(~S_IRWXU);
 			//Read the name of the new entity
 			std::string name = s.readString(1024);
-			printf("==============> importing %s <==============\n",name.c_str());
-
+			cout << "==============> importing " << name << " <==============" << endl;
 			p = entriesPath + "/" + name;
 			pid_t r = fork();
 			if(r == 0) {
@@ -73,14 +73,15 @@ public:
 			if(waitpid(r, &status, 0) == -1) THROW_PE("waitpid() failed\n");
 			if(!WIFEXITED(status) || WEXITSTATUS(status) != 0) THROW_E("Failed creating directory structure\n");
 			if(chdir(p.c_str()) == -1) THROW_PE("chdir() failed\n");
-
 			//Extract the archive on the fly
 			int pipefd[2];
 			if(pipe(pipefd) == -1) THROW_PE("pipe() failed\n");
+			file pread(pipefd[1]);
+			file pwrite(pipefd[0]);
 			r = fork();
 			if(r == 0) {
-				close(pipefd[1]);
-				if(dup2(pipefd[0],0) == -1) {perror("dup2() failed"); exit(-1);}
+				pread.close();
+				if(dup2(pwrite,0) == -1) {perror("dup2() failed"); exit(-1);}
 				setregid(droneGroup, droneGroup);
 				setreuid(droneUser,droneUser);
 				execlp("tar","tar","-xjvC",".", NULL);
@@ -88,9 +89,9 @@ public:
 				exit(-1);
 			}
 			if(r == -1) THROW_PE("fork() failed\n");
-			close(pipefd[0]);
-			s.readFD(pipefd[1]);
-			close(pipefd[1]);
+			pwrite.close();
+			s.readFD(pread);
+			pread.close();
 			if(waitpid(r, &status, 0) == -1) THROW_PE("waitpid() failed\n");
 			if(!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
 				rmrf(p.c_str());
@@ -144,21 +145,22 @@ public:
 				if(!l->hasSource("reference")) continue;
 				if(!l->compile("reference", droneUser, droneGroup, s)) return;
 				l->restrictRun("reference", false);
-				DIR * d = opendir("inputs");
+				
+				dir d = opendir("inputs");
 				if(d == NULL) THROW_PE("opendir() failed");
 				while(struct dirent * e = readdir(d)) {
 					if(e->d_name[0] == '.' || e->d_name[0] == '\0') continue;
 					char buff[1024];
 					sprintf(buff,"inputs/%s",e->d_name);
 					float time=maxTime;
-					int in=open(buff,O_RDONLY);
+					file in=open(buff,O_RDONLY);
 					sprintf(buff,"outputs/%s",e->d_name);
-					int out=open(buff,O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
+					file out=open(buff,O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
 					int r = l->run("reference",in,out,2,maxMemory, maxOutput,time, droneUser, droneGroup);
 					printf("Running %s reference solution on %s, finished in time %f with result %d\n",
 						   l->name().c_str(), e->d_name, time, r);
-					close(in);
-					close(out);
+					in.close();
+					out.close();
 					chown(buff, droneUser, droneGroup);
 					if(r != RUN_SUCCESS) {
 						rmrf(".");
@@ -171,14 +173,12 @@ public:
 						return;
 					}
 					sprintf(buff,"times/%s.%s",e->d_name,l->name().c_str());
-					FILE * f = fopen(buff,"w");
+					sfile f = fopen(buff,"w");
 					if(f == NULL) THROW_PE("fopen() failed");
 					fprintf(f,"%f\n",time);
-					fclose(f);
 					if(chown(buff, droneUser, droneGroup) == -1) THROW_PE("chown() failed");
 				}
 				l->unrestrictRun("reference");
-				closedir(d);
 			}
 			s.write(XSTR(RUN_SUCCESS));
 			s.write(name + " imported sucessfully");

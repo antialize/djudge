@@ -22,6 +22,7 @@
 #include "globals.hh"
 #include "results.hh"
 #include "validation.hh"
+#include "rwap.hh"
 #include <cstdio>
 #include <cstdlib>
 #include <dirent.h>
@@ -47,13 +48,12 @@ class ListHandler: public CommandHandler {
 public:
 	std::string name() const {return "list";}
 	void handle(PackageSocket & s) {
-		DIR * d = opendir(entriesPath.c_str());
+		dir d = opendir(entriesPath.c_str());
 		if(d != NULL) {
 			while(struct dirent * e = readdir(d)) {
 				if(e->d_name[0] == '.' || e->d_name[0] == '\0') continue;
 				s.write(e->d_name);
 			}
-			closedir(d);
 		}
 		s.write("");
 	}
