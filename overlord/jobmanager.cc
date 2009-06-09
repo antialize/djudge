@@ -46,7 +46,8 @@ uint64_t JobManager::addJob(ptr<Job> & i) {
 			j->b = i->b;
 			j->c = i->c;
 			(*_)->addJob(j);
-		}		
+		}
+		freeDrones.clear();
 	} else {
 		cout << "JobManager: Added job " << i->id << " to the job queue" << endl;
 		jobQueue.push_back(i);
@@ -77,15 +78,15 @@ void JobManager::unregisterDrone(ptr<Drone> & d) {
 	drones.erase(d);
 	for(std::deque<ptr<Drone> >::iterator i = freeDrones.begin(); i != freeDrones.end(); ++i) {
 		if(*i != d) continue;
-		cout << "d unregister drone Hay " << d.get() << endl;
 		freeDrones.erase(i);
 		break;
 	}
-	cout << "f unregister drone " << d.get() << endl;
+	cout << "Jobmanager: Unregister " << d->repr() << endl;
 }
 
 
 void JobManager::freeDrone(ptr<Drone> & d) {
+	cout << "Jobmanager: Adding " << d->repr() << " to the free list" << endl;
 	freeDrones.push_back(d);
 	droneCond.signal();
 }
@@ -98,8 +99,13 @@ void JobManager::run() {
 		while(freeDrones.empty()) droneCond.wait();
 		ptr<Drone> d = freeDrones.front();
 		freeDrones.pop_front();
-		cout << "Jobmanager: Pushing job " << j->id << " to " << d.get() << endl;
+		cout << "Jobmanager: Pushing" << j->repr() << " to " << d->repr() << endl;
 		d->addJob(j);
-		cout << "Push done" << endl;
 	}
+}
+
+std::string Job::repr() {
+	ostringstream s;
+	s << "Job " << id;
+	return s.str();
 }

@@ -42,6 +42,7 @@ struct Job: public PtrBase {
 	std::string a,b,c;
 	int result;
 	std::string msg; 
+	std::string repr();
 };
 
 class JobManager: public PtrBase {

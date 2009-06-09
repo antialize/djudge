@@ -30,12 +30,11 @@
 #include <sys/types.h>
 using namespace std;
 
+uint64_t Drone::idc = 0;
+
 void Drone::addJob(ptr<Job> & job) {
-	cout << "A" << endl;
 	jobQueue.push_back(job);
-	cout << "B" << endl;
 	jobQueueCond.signal();
-	cout << "C" << endl;
 }
 
 int Drone::import(PackageSocket & s, const std::string & name, const std::string & path, std::string & msg) {
@@ -70,7 +69,7 @@ void Drone::run_(PackageSocket & s) {
 		myEntries.insert(entry);
 	}
 	while(s.canRead()) {
-		cout << "Drone " << this << " is waiting for a job" << endl;
+		cout << this->repr() << ": waiting for a job" << endl;
 		jobQueueCond.timedWait(10);
 		if(jobQueue.empty()) {
 			if(!s.canRead()) break;
@@ -84,7 +83,7 @@ void Drone::run_(PackageSocket & s) {
 		}
 		ptr<Job> j = jobQueue.back();
 		jobQueue.pop_back();
-		cout << "Drone " << this << ": Processing job " << j->id << endl;
+		cout << repr() << ": Processing job " << j->id << endl;
 		try {
 			switch(j->type) {
 			case ::import:
@@ -145,17 +144,17 @@ void Drone::run_(PackageSocket & s) {
 				j->result = RUN_INTERNAL_ERROR;
 				j->msg = "Not implemented";
 			}
-			cout << "Drone " << this << ": Finished job " << j->id << "  with result " << j->result << endl;
+			cout << this->repr() << ": Finished job " << j->id << "  with result " << j->result << endl;
 			if(j->client != NULL) 
 				j->client->jobDone(j);
 		} catch(std::exception & e) {
-			cout << "hat " << endl;
-			JobManager::addJob(j);
+			if(j->type != push && j->type != dispose)
+				JobManager::addJob(j);
 			throw;
 		}
 		if(jobQueue.empty()) JobManager::freeDrone(self);
 	}
-	cout << "Drone " << this << " died" << endl;
+	cout << this->repr() << ": Died" << endl;
 }
 
 void Drone::run(PackageSocket & s) {
@@ -168,4 +167,10 @@ void Drone::run(PackageSocket & s) {
 		throw;
 	}
 	JobManager::unregisterDrone(d);
+}
+
+std::string Drone::repr() {
+	std::ostringstream x;
+	x << "Drone " << id;
+	return x.str();
 }

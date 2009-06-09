@@ -24,17 +24,22 @@
 #include "packagesocket.hh"
 #include "ptr.hh"
 #include <set>
+#include <stdint.h>
 
 class Drone: public PtrBase {
 private:
+	static uint64_t idc;
+	uint64_t id;
+
 	Cond jobQueueCond;
 	std::deque<ptr<Job> > jobQueue;
 	std::set<std::string> myEntries;
 public:
+	inline Drone() {id = idc++;}
 	int import(PackageSocket & s, const std::string & name, const std::string & path, std::string & msg);
-	
 	void addJob(ptr<Job> & job);
 	void run_(PackageSocket & s); 
 	static void run(PackageSocket & s);
+	std::string repr();
 };
 #endif //__drone_hh__
