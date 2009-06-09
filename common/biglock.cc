@@ -20,7 +20,7 @@
 #include <iostream>
 using namespace std;
 
-#define DEBUG_LOG
+//#define DEBUG_LOG
 #ifdef DEBUG_LOG
 #define __LOCK__
 #else
