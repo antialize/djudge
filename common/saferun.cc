@@ -16,20 +16,19 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#include "results.hh"
-#include "saferun.hh"
 #include "error.hh"
+#include "results.hh"
+#include "rwap.hh"
+#include "saferun.hh"
+#include <cmath>
+#include <iostream>
+#include <stdarg.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/time.h>
 #include <sys/wait.h>
 #include <unistd.h>
-#include <stdio.h>
-#include <sys/time.h>
-#include <stdarg.h>
-#include <cmath>
-#include <stdlib.h>
-#include <stdio.h>
 #include <vector>
-#include <sys/wait.h>
-#include <iostream>
 using namespace std;
 
 static pid_t child;
@@ -51,16 +50,19 @@ int saferun(int in,
 			... 
 	) {
 	pid_t outputlimiter=0;
+	file pwrite;
 	if(outputLimit > 0) {
 		int op[2];
 		if(pipe(op) == -1) THROW_PE("pipe() failed\n");
+		file pread=op[0];
+		pwrite=op[1];
 		outputlimiter=fork();
 		if(outputlimiter==0) {
-			close(op[1]);
+			pwrite.close();
 			char buff[1024*128];
 			size_t r=0;
 			while(true) {
-				int i=read(op[0],buff,1024*128);
+				int i=read(pread,buff,1024*128);
 				if(i <= 0) exit(RUN_SUCCESS);
 				r+=i;
 				if(r > outputLimit) exit(RUN_OUTPUT_LIMIT_EXCEEDED);
@@ -68,17 +70,20 @@ int saferun(int in,
 			}
 		}
 		if(outputlimiter==-1) THROW_PE("fork() failed\n");
-		close(op[0]);
-		out=op[1];
+		close(pread);
+		out=pwrite;
 	}
 	int timep[2];
 	if(pipe(timep) == -1) THROW_PE("pipe() failed\n");
+	file tread=timep[0];
+	file twrite=timep[1];
+
 	pid_t timer=fork();
 	if(timer == 0) {
-		close(timep[0]);
+		tread.close();
 		pid_t app=child=fork();
 		if(app == 0) {
-			close(timep[1]);
+			twrite.close();
 			if(in != 0) dup2(in,0);
 			if(out != 1) dup2(out,1);
 			if(err != 2) dup2(err,2);
@@ -128,13 +133,12 @@ int saferun(int in,
 		char o[40];
 		float time=(t.it_value.tv_sec-cur.it_value.tv_sec) + (t.it_value.tv_usec-cur.it_value.tv_usec)/1000000.0;
 		sprintf(o,"%f",time);
-		write(timep[1],o,strlen(o));
-		close(timep[1]);
+		write(twrite,o,strlen(o));
+		twrite.close();
 		exit(RUN_SUCCESS);		       
 	}
 	if(outputlimiter != 0) close(out);
-	
-	close(timep[1]);
+	twrite.close();
 	char i[40];
 	int x = read(timep[0], i, 39);
 	int status;
