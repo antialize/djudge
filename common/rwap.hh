@@ -23,33 +23,32 @@
 
 class sfile {
 public:
-  FILE * f;
-  inline sfile(FILE *_=NULL): f(_) {};
-  inline void set(FILE *_) {if(f != NULL) fclose(f); f=_;}
-  inline void close() {set(NULL);}
-  inline ~sfile() {close();}
-  inline operator FILE *() {return f;}
+	FILE * f;
+	inline sfile(FILE *_=NULL): f(_) {};
+	inline void set(FILE *_) {if(f != NULL) fclose(f); f=_;}
+	inline void close() {set(NULL);}
+	inline ~sfile() {close();}
+	inline operator FILE *() {return f;}
 };
 
 class file {
 public:
-  int fd;
-  inline file(int _=-1): fd(_) {};
-  inline void set(int _) {if(fd != -1) ::close(fd); fd=_;}
-  inline void close() {set(-1);}
-  inline ~file() {close();}
-  //  inline int operator=(int _) {set(_);return _;}
-  inline  operator int() {return fd;}
+	int fd;
+	inline file(int _=-1): fd(_) {};
+	inline void set(int _) {if(fd != -1) ::close(fd); fd=_;}
+	inline void close() {set(-1);}
+	inline ~file() {close();}
+	inline  operator int() {return fd;}
 };
 
 class dir {
 public:
-  DIR * d;
-  inline dir(DIR * _=NULL): d(_) {};
-  inline void set(DIR * _) {if(d != NULL) closedir(d); d=_;}
-  inline void close() {set(NULL);}
-  inline ~dir() {close();}
-  inline operator DIR*() {return d;}
+	DIR * d;
+	inline dir(DIR * _=NULL): d(_) {};
+	inline void set(DIR * _) {if(d != NULL) closedir(d); d=_;}
+	inline void close() {set(NULL);}
+	inline ~dir() {close();}
+	inline operator DIR*() {return d;}
 };
 
 #endif //__rwap_hh__
