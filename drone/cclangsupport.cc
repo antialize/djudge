@@ -22,6 +22,7 @@
 #include "globals.hh"
 #include "langsupport.hh"
 #include "results.hh"
+#include "rwap.hh"
 #include "saferun.hh"
 #include <iostream>
 #include <sstream>
@@ -91,22 +92,25 @@ public:
 			dst.c_str());
 		int p[2];
 		if(pipe(p) == -1) THROW_PE("pipe() failed");
+		file pwrite = p[1];
+		file pread = p[0];
+		
 		pid_t f = fork();
 		if(f == 0) {
-			close(p[0]);
-			exit(saferun(0,p[1],p[1],100*1024*1024,0,user,group,time,10,"g++","g++","-O2" , "-Wall" , "-W", "-o", dst.c_str(), src.c_str(), NULL));
+			pread.close();
+			exit(saferun(0,pwrite,pwrite,100*1024*1024,0,user,group,time,10,"g++","g++","-O2" , "-Wall" , "-W", "-o", dst.c_str(), src.c_str(), NULL));
 		}
+		pwrite.close();
 		if(f == -1) THROW_PE("fork() failed");
-		close(p[1]);
 		std::string res;
 		while(true) {
 			char buff[1024*128];
-			int r = read(p[0],buff,1024*128);
+			int r = read(pread,buff,1024*128);
 			if(r == -1) THROW_PE("read() failed");
 			if(r == 0) break;
 			res += buff;
 		}
-		close(p[0]);
+		pread.close();
 		int stat;
 		if(waitpid(f,  &stat, 0) == -1) THROW_PE("waitpid() failed");
 		if(!WIFEXITED(stat)) {
