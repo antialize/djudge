@@ -1,0 +1,1 @@
+pyjsbuild main.py
