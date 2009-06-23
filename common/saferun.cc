@@ -55,7 +55,7 @@ int saferun(int in,
 		int op[2];
 		if(pipe(op) == -1) THROW_PE("pipe() failed\n");
 		file pread=op[0];
-		pwrite=op[1];
+		pwrite.set(op[1]);
 		outputlimiter=fork();
 		if(outputlimiter==0) {
 			pwrite.close();

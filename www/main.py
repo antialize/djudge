@@ -19,12 +19,14 @@ from pyjamas.ui.FileUpload import FileUpload
 from pyjamas.ui.TextArea import TextArea
 from pyjamas.ui.Hidden import Hidden
 from pyjamas.ui.TextBox import TextBox
+from pyjamas.ui.Hyperlink import Hyperlink
 from pyjamas.ui.PasswordTextBox import PasswordTextBox
+from pyjamas.Cookies import getCookie, setCookie
 cookie=None
 
 class Gateway(JSONProxy):
     def __init__(self):
-        JSONProxy.__init__(self, "../rpc.py", ["login","logout","listProblems"])
+        JSONProxy.__init__(self, "../rpc.py", ["login","logout","listProblems","listSubmissions"])
 
 gw=Gateway()
 
@@ -36,7 +38,9 @@ class LoginDialgoBox(DialogBox):
         self.table.setText(0, 0, "Please enter username and password")
         self.table.getFlexCellFormatter().setColSpan(0, 0, 2)
         self.table.setText(1, 0, "Username")
-        self.handle = TextBox() 
+        self.handle = TextBox()
+        h = getCookie('handle')
+        self.handle.setText(h)
         self.table.setWidget(1, 1, self.handle)
         self.table.setText(2, 0, "Password")
         self.pwd = PasswordTextBox()
@@ -61,6 +65,7 @@ class LoginDialgoBox(DialogBox):
             self.table.setHTML(3,0,"<b>Invalid username or password</b>")
         else:
             self.app.cookie = response
+            setCookie('cookie',response,24*60*60)
             Window.alert(self.app.cookie)
             self.app.loginButton.setText("Log out")
             self.hide()
@@ -73,8 +78,18 @@ class LoginDialgoBox(DialogBox):
 
     def onOk(self, env):
         global gw
+        setCookie('handle',self.handle.getText(),24*60*60*1000)
         gw.login(self.handle.getText(), self.pwd.getText(), self)
-        
+
+class UserTab:
+    def __init__(self,app):
+        global gw
+        self.app=app
+        self.table = FlexTable()
+        self.table.setHTML(0, 0, "<b>Implement me</b>")
+
+    def getRoot(self):
+        return self.table
     
 class ProblemsTab:
     def __init__(self,app):
@@ -104,10 +119,38 @@ class ProblemsTab:
 class StatusTab:
     def __init__(self,app):
         self.app=app
-        self.hat = HTML("<b>GO AWAY</b>")
+        self.vpanel = VerticalPanel()
+        self.vpanel.setWidth("100%")
+        self.table = FlexTable()
+        self.vpanel.add(self.table)
+        btn = Button('Update',self.update)
+        self.vpanel.add(btn)
+        self.update()
+
+    def update(self,_=None):
+        global gw
+        gw.listSubmissions(self)
+        
+    def onRemoteResponse(self, response, request_info):
+        self.table.clear()
+        self.table.setHTML(0, 0, "<b>Problem</b>")
+        self.table.setHTML(0, 1, "<b>User</b>")
+        self.table.setHTML(0, 2, "<b>Code</b>")
+        self.table.setHTML(0, 3, "<b>Message</b>")
+        cnt=1
+        if response:
+            for line in response:
+                self.table.setText(cnt, 0, line[0])
+                self.table.setText(cnt, 1, line[1])
+                self.table.setText(cnt, 2, line[2])
+                self.table.setText(cnt, 3, line[3])
+                cnt += 1
+            
+    def onRemoteError(self, code, message, request_info):
+        Window.alert(message)
 
     def getRoot(self):
-        return self.hat
+        return self.vpanel
 
 class SubmitTab:
     def __init__(self,app):
@@ -174,27 +217,57 @@ class SubmitTab:
         return self.form
         #return self.table;
     
+tps={}
+tpid=0
+class MyTabPanel(TabPanel):
+    def __init__(self):
+        global tps
+        global tpid
+        tps[tpid] = self
+        self.id = tpid
+        tpid += 1
+        self.k2w = {}
+        self.key=0
+        TabPanel.__init__(self)
+        
+    def add(self, tab, text, closable=False):
+        t = text
+        if closable:
+            t += " <a href\=""about:black\" onClick=\"document.modules.main.main.tps.get(%d).removeByKey(%d); return false;\">[x]</a>"%(self.id,self.key)
+        TabPanel.add(self, tab, t, closable)
+        self.k2w[self.key]=tab
+        self.key+=1
+
+    def removeByKey(self, key):
+        self.remove(self.k2w[key])
 
 class App:
+    def closeTab(self, x):
+        Window.alert("close " + x);
+
     def __init__(self):
+        global app
+        app = self
         self.vpanel = VerticalPanel()
         self.vpanel.setWidth("100%")
-        self.tabs = TabPanel()
+        self.tabs = MyTabPanel()
         RootPanel().add(self.vpanel)
         
         self.tabs.setWidth("100%")
         self.submitTab = SubmitTab(self)
         self.problemsTab = ProblemsTab(self)
         self.statusTab = StatusTab(self)
-        self.cookie = None
+        self.cookie = getCookie('cookie')
 
         self.tabs.add(self.problemsTab.getRoot(), "Problems")
         self.tabs.selectTab(0)
         self.tabs.add(self.submitTab.getRoot(), "Submit")
         self.tabs.add(self.statusTab.getRoot(), "Status")
         self.vpanel.add(self.tabs)
-        
-        self.loginButton = Button("Log in",self.swaplog)
+        if self.cookie:
+            self.loginButton = Button("Log out",self.swaplog)
+        else:
+            self.loginButton = Button("Log in",self.swaplog)
         self.vpanel.add(self.loginButton)
 
     def swaplog(self,_):
@@ -207,11 +280,19 @@ class App:
         ld = LoginDialgoBox(self)
         ld.show()
 
+    def showProblemDetails(self, pid):
+        pass
+
+    def showUserInfo(self,uid):
+        pass
+
     def logout(self):
         global gw
         gw.logout(self.cookie)
         self.cookie = None
+        setCookie('cookie','',24*60*60)
         self.loginButton.setText("Log in")
+
 if __name__ == '__main__':
     app = App()
 

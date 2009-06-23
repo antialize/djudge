@@ -33,6 +33,6 @@ t2 "hack" RUN_EXIT_NOT_ZERO hack.cc
 t2 "sigsegv" RUN_INVALID_MEMORY_REFERENCE sigsegv.cc
 t2 "Memory" RUN_MEMORY_LIMIT_EXCEEDED memory.cc
 t2 "Compile error" RUN_COMPILATION_ERROR compile.cc
-t2 "Bussy wait" RUN_TIME_LIMIT_EXCEEDED bussywait.cc
-t2 "Sleep wait" RUN_TIME_LIMIT_EXCEEDED sleep.cc
-t2 "Fork bomb" RUN_TIME_LIMIT_EXCEEDED fork.cc
+#t2 "Bussy wait" RUN_TIME_LIMIT_EXCEEDED bussywait.cc
+#t2 "Sleep wait" RUN_TIME_LIMIT_EXCEEDED sleep.cc
+#t2 "Fork bomb" RUN_TIME_LIMIT_EXCEEDED fork.cc

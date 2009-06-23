@@ -1,7 +1,8 @@
-#import client
+import problemmanagment
 import usermanagment
 
 def submit(req):
+    msg=""
     try: 
     #Todo assert logged in
     #source = req.form['source']
@@ -21,9 +22,11 @@ def submit(req):
             z = z.file.read()
             if z: source = z
         uid = usermanagment.getUid(cookie)
-        client.submit(uid,problem,lang,source,fn)
+        msg = problemmanagment.submit(uid,problem,lang,source,fn)
     except Exception as e:
+        msg = str(e)
+    if msg:
         req.content_type = "text/html"
-        x = str(e).replace('\\','\\\\').replace('"','\\"')
-        return "<html><body><script>alert(\"%s\")</script></body></html>"%x
+        msg = msg.replace('\\','\\\\').replace('"','\\"')
+        return "<html><body><script>alert(\"%s\")</script></body></html>"%msg
     return ""
