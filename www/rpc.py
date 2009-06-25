@@ -54,6 +54,5 @@ def getSubmissionDetails(cookie, sid):
             'problem': s.problem.name,
             'source': s.source}
     
-
 if __name__ == "__main__":
     handleCGI()

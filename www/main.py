@@ -34,6 +34,7 @@ class Gateway(JSONProxy):
 
 gw=Gateway()
 
+
 class LoginDialgoBox(DialogBox):
     def __init__(self, app):
         DialogBox.__init__(self)
@@ -95,6 +96,45 @@ class EntityTab:
     def onRemoteError(self, code, message, request_info):
         Window.alert(message)
 
+class UploadProblemTab(EntityTab):
+    def __init__(self,app):
+        EntityTab.__init__(self, app)
+        self.form = FormPanel()
+        self.form.setEncoding("multipart/form-data")
+        self.form.setMethod("post")
+        self.table = FlexTable()
+        self.table.setText(0,0,"Problem archive")
+        self.file = FileUpload()
+        self.file.setName("file");
+        self.table.setWidget(0,1,self.file)
+        self.form.setWidget(self.table)
+        self.button = Button("Submit",self)
+        self.table.setWidget(1,1, self.button)
+        self.msg = HTML("<b>Uploading</b>")
+        self.msg.setVisible(False)
+        self.cookie = Hidden()
+        self.cookie.setName("cookie")
+        self.table.setWidget(2,0, self.cookie)
+        self.table.setWidget(2,1, self.msg)
+        self.form.setWidget(self.table)
+        self.form.setAction("../upload.py/problem")
+        self.add("Upload new problem")
+
+    def onSubmitComplete(self,event):
+        self.msg.setVisible(False)
+
+    def onSubmit(self,evt):
+        self.msg.setVisible(True)
+        
+    def onClick(self,evt):
+        if self.app.cookie == None:
+            self.app.login()
+        else:
+            self.cookie.setValue(self.app.cookie)
+            self.form.submit()
+        
+    def getRoot(self):
+        return self.form
 
 class UserTab(EntityTab):
     def __init__(self,app, uid):
@@ -102,13 +142,15 @@ class UserTab(EntityTab):
         EntityTab.__init__(self, app)
         self.table = FlexTable()
         self.table.setHTML(0, 0, "<b>Implement me</b>")
+        self.add("Foo user "+uid)
 
 class ProblemTab(EntityTab):
-    def __init__(self,app, uid):
+    def __init__(self,app, pid):
         global gw
         EntityTab.__init__(self, app)
         self.table = FlexTable()
         self.table.setHTML(0, 0, "<b>Implement me</b>")
+        self.add("Foo problem "+pid)
 
 class SubmissionTab(EntityTab):
     def __init__(self,app, sid):
@@ -184,21 +226,41 @@ class ProblemsTab:
     def __init__(self,app):
         global gw
         self.app=app
+        self.vpanel = VerticalPanel()
+        self.vpanel.setWidth("100%")
         self.table = FlexTable()
         self.table.setHTML(0, 0, "<b>ID</b>")
         self.table.setHTML(0, 1, "<b>Name</b>")
         self.table.setHTML(0, 2, "<b>Submitted By</b>")
+        self.vpanel.add(self.table)
+        self.btn = Button("Upload new problem",self.uploadProblem)
+        self.vpanel.add(self.btn)
         self.cnt = 1
         gw.listProblems(self)
+
+    def problemLambda(self, pid):
+        return lambda: ProblemTab(self.app, pid)
+
+    def userLambda(self,uid):
+        return lambda: UserTab(self.app, uid)
+
+    def uploadProblem(self,_=None):
+        UploadProblemTab(self.app)
         
     def getRoot(self):
-        return self.table;
+        return self.vpanel
 
     def onRemoteResponse(self, response, request_info):
         for line in response:
-            self.table.setText(self.cnt, 0, line[1])
-            self.table.setText(self.cnt, 1, line[0])
-            self.table.setText(self.cnt, 2, line[3])
+            l=Hyperlink(line[1])
+            l.addClickListener(self.problemLambda(line[1]));
+            self.table.setWidget(self.cnt, 0, l)
+            l=Hyperlink(line[0])
+            l.addClickListener(self.problemLambda(line[1]));
+            self.table.setWidget(self.cnt, 1, l)
+            l=Hyperlink(line[3])
+            l.addClickListener(self.userLambda(line[2]));
+            self.table.setWidget(self.cnt, 2, l)
             self.app.submitTab.problem.insertItem(line[0]+" ("+line[1]+")",line[1],-1)
             self.cnt += 1       
             
@@ -235,7 +297,6 @@ class StatusTab:
 
     def problemLambda(self, pid):
         return lambda: ProblemTab(self.app, pid)
-
 
     def userLambda(self,uid):
         return lambda: UserTab(self.app, uid)
@@ -329,12 +390,11 @@ class SubmitTab:
 #include <stdio.h>
 int main() {
   int a,b;
-  sleep(5);
   scanf("%d %d",&a,&b);
   printf("%d\\n",a+b);
   return 0;
 }""")
-
+        self.source.addChangeListener(self.onChange)
         self.table.setWidget(3,1,self.source)
 
         self.button = Button("Submit",self)
@@ -345,6 +405,12 @@ int main() {
         self.form.setAction("../upload.py/submit")
 
         self.form.addFormHandler(self)
+
+    def onChange(self, src):
+        if self.source.getText():
+            self.file = FileUpload()
+            self.file.setName("file");
+            self.table.setWidget(2,1,self.file)
 
     def onSubmitComplete(self,event):
         self.msg.setVisible(False)

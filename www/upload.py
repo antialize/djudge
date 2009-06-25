@@ -32,3 +32,25 @@ def submit(req):
         return "<html><body><script>alert(\"%s\")</script></body></html>"%msg
     else:
         return """<html><body><script>window.parent.document.modules.main.main.switchToStatusTab();</script></body></html>"""
+
+def problem(req):
+    msg=""
+    try:
+        #Extract archive
+        #Find the name of the problem and check that it is unique
+        #Convert tex to html, to generate the problem page
+        #Tar down needed files and send the package to the overlord
+        #Wait for the answer (This could take some time)
+        #Give the user some responce
+        pass
+    except Exception as e:
+        msg = str(e)
+
+    req.content_type = "text/html"
+    if msg:
+        msg = msg.replace('\\','\\\\').replace('"','\\"')
+        return "<html><body><script>alert(\"%s\")</script></body></html>"%msg
+    else:
+        return """<html><body><script>window.parent.document.modules.main.main.switchToStatusTab();</script></body></html>"""
+
+        
