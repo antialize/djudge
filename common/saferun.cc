@@ -69,8 +69,8 @@ int saferun(int in,
 				if(write(out,buff,i) != i) exit(RUN_SUCCESS); //TODO: Should we catch this
 			}
 		}
+		pread.close();
 		if(outputlimiter==-1) THROW_PE("fork() failed\n");
-		close(pread);
 		out=pwrite;
 	}
 	int timep[2];
