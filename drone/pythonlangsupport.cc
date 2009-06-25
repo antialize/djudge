@@ -38,7 +38,7 @@ public:
 	}
 	bool compile(std::string, int user, int group, PackageSocket & s) {return true;}
 	void restrictRun(std::string name ,bool entryAccess) {
-		string path = absolutePath(name);
+		string path = absolutePath(name)+".py";
 		string s;
 		string py=absolutePath(proxyPath+"/proxy_python");
 		if(entryAccess) s = "  " + getCWD() + "/**   rw,\n";
