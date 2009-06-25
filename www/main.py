@@ -22,11 +22,15 @@ from pyjamas.ui.TextBox import TextBox
 from pyjamas.ui.Hyperlink import Hyperlink
 from pyjamas.ui.PasswordTextBox import PasswordTextBox
 from pyjamas.Cookies import getCookie, setCookie
+from pyjamas.Timer import Timer
+from datetime import datetime
+import pyjamas.DOM 
+
 cookie=None
 
 class Gateway(JSONProxy):
     def __init__(self):
-        JSONProxy.__init__(self, "../rpc.py", ["login","logout","listProblems","listSubmissions"])
+        JSONProxy.__init__(self, "../rpc.py", ["login","logout","listProblems","listSubmissions","getSubmissionDetails"])
 
 gw=Gateway()
 
@@ -65,8 +69,7 @@ class LoginDialgoBox(DialogBox):
             self.table.setHTML(3,0,"<b>Invalid username or password</b>")
         else:
             self.app.cookie = response
-            setCookie('cookie',response,24*60*60)
-            Window.alert(self.app.cookie)
+            setCookie('cookie',response,1000*60*60*24)
             self.app.loginButton.setText("Log out")
             self.hide()
             
@@ -81,15 +84,101 @@ class LoginDialgoBox(DialogBox):
         setCookie('handle',self.handle.getText(),24*60*60*1000)
         gw.login(self.handle.getText(), self.pwd.getText(), self)
 
-class UserTab:
+class EntityTab:
     def __init__(self,app):
+        self.app = app
+    def add(self, name):
+        self.app.tabs.add(self.getRoot(), name, True)
+        self.app.tabs.selectTab( self.app.tabs.getWidgetCount() -1 )
+    def getRoot(self):
+        return self.table
+    def onRemoteError(self, code, message, request_info):
+        Window.alert(message)
+
+
+class UserTab(EntityTab):
+    def __init__(self,app, uid):
         global gw
-        self.app=app
+        EntityTab.__init__(self, app)
         self.table = FlexTable()
         self.table.setHTML(0, 0, "<b>Implement me</b>")
 
-    def getRoot(self):
-        return self.table
+class ProblemTab(EntityTab):
+    def __init__(self,app, uid):
+        global gw
+        EntityTab.__init__(self, app)
+        self.table = FlexTable()
+        self.table.setHTML(0, 0, "<b>Implement me</b>")
+
+class SubmissionTab(EntityTab):
+    def __init__(self,app, sid):
+        global gw
+        EntityTab.__init__(self, app)
+        gw.getSubmissionDetails(app.cookie, sid, self)
+
+    def trcode(self, c):
+        if c == 0:
+            return "Success"
+        elif c == 1:
+            return "Exit none-zero"
+        elif c == 2:
+            return "Presentation error"
+        elif c == 3:
+            return "Time limit exceeded"
+        elif c == 4:
+            return "Abnormal termination"
+        elif c == 5:
+            return "Runtime error"
+        elif c == 6:
+            return "Output limit exceeded"
+        elif c == 7:
+            return "Internal error"
+        elif c == 8:
+            return "Compilation time exceeded"
+        elif c == 9:
+            return "Compile error"
+        elif c == 10:
+            return "Entry does not exist"
+        elif c == 11:
+            return "Bad command"
+        elif c == 12:
+            return "Pending"
+        elif c == 13:
+            return "Error untaring archive"
+        elif c == 14:
+            return "Wrong output"
+        elif c == 15:
+            return "Invalid memory reference"
+        elif c == 16:
+            return "Memory limit exceeded"
+        elif c == 17:
+            return "Divide by zero"
+        else:
+            return "Unknown"
+
+    def onRemoteResponse(self, response, request_info):
+        self.table = FlexTable()
+        self.table.setText(0,0, "Problem");
+        self.table.setText(0,1, response['problem']);
+        self.table.setText(1,0, "Code");
+        self.table.setText(1,1, self.trcode(response['code'])+ " ("+response['code']+")");
+        self.table.setText(2,0, "Message");
+        x = TextArea()
+        x.setText(response['message'])
+        x.setWidth(600);
+        x.setHeight(300);
+        pyjamas.DOM.setAttribute(x.getElement(), 'readOnly', 'readonly')
+        pyjamas.DOM.setAttribute(x.getElement(), 'readonly', 'readonly')
+        self.table.setWidget(2,1,x );
+        self.table.setText(3,0, "Source");
+        x = TextArea()
+        x.setText(response['source'])
+        x.setWidth(600);
+        x.setHeight(300);
+        pyjamas.DOM.setAttribute(x.getElement(), 'readOnly',  'readonly')
+        pyjamas.DOM.setAttribute(x.getElement(), 'readonly',  'readonly')
+        self.table.setWidget(3,1, x);
+        self.add("Submission "+response['id'])
     
 class ProblemsTab:
     def __init__(self,app):
@@ -125,26 +214,70 @@ class StatusTab:
         self.vpanel.add(self.table)
         btn = Button('Update',self.update)
         self.vpanel.add(btn)
+        self.id2row = {}
+        self.table.setHTML(0, 0, "<b>Time</b>")
+        self.table.setHTML(0, 1, "<b>Problem</b>")
+        self.table.setHTML(0, 2, "<b>User</b>")
+        self.table.setHTML(0, 3, "<b>Status</b>")
+        self.cnt=1
+        self.time=None
         self.update()
+        Timer(4000,self)
+
+    def onTimer(self, x):
+        self.update()
+        Timer(4000,self)
 
     def update(self,_=None):
         global gw
-        gw.listSubmissions(self)
-        
+        gw.listSubmissions(self.time, self)
+    
+
+    def problemLambda(self, pid):
+        return lambda: ProblemTab(self.app, pid)
+
+
+    def userLambda(self,uid):
+        return lambda: UserTab(self.app, uid)
+
+    def submissionLambda(self,sid):
+        return lambda: SubmissionTab(self.app, sid)
+
     def onRemoteResponse(self, response, request_info):
-        self.table.clear()
-        self.table.setHTML(0, 0, "<b>Problem</b>")
-        self.table.setHTML(0, 1, "<b>User</b>")
-        self.table.setHTML(0, 2, "<b>Code</b>")
-        self.table.setHTML(0, 3, "<b>Message</b>")
-        cnt=1
+#0  (x.id,               
+#1 x.problem.name, 
+#2 x.problem_id, 
+#3 x.submitter.handle, 
+#4 x.submitter_id,  
+#5 status(x.code),
+#6 x.judgeTime,
+#7 x.submitTime )
         if response:
             for line in response:
-                self.table.setText(cnt, 0, line[0])
-                self.table.setText(cnt, 1, line[1])
-                self.table.setText(cnt, 2, line[2])
-                self.table.setText(cnt, 3, line[3])
-                cnt += 1
+                if line[0] in self.id2row:
+                    idx =self.cnt- self.id2row[line[0]]
+                    #alert(self.id2row[line[0]] + " " + idx + " " + self.cnt);
+                    #return
+                else:
+                    idx = 1
+                    self.table.insertRow(1)
+                    self.id2row[line[0]] = self.cnt
+                    self.cnt += 1          
+                #Hyperlink
+                self.table.setText(idx, 0, line[7])
+                pl=Hyperlink(line[1])
+                pl.addClickListener(self.problemLambda(line[2]));
+                self.table.setWidget(idx, 1, pl)
+                ul=Hyperlink(line[3])
+                ul.addClickListener(self.userLambda(line[4]) );
+                self.table.setWidget(idx, 2, ul)
+                sl=Hyperlink(line[5])
+                sl.addClickListener(self.submissionLambda(line[0]))
+                self.table.setWidget(idx, 3, sl)
+                if line[6] != 'None': self.time = max(self.time, line[6], line[7])
+                else: self.time = max(self.time, line[7])
+        
+
             
     def onRemoteError(self, code, message, request_info):
         Window.alert(message)
@@ -188,6 +321,20 @@ class SubmitTab:
         
         self.source = TextArea()
         self.source.setName("source")
+        self.source.setWidth("600");
+        self.source.setHeight("400");
+        self.source.setText("""//$$problem: 1$$
+//$$language: cc$$
+#include <unistd.h>
+#include <stdio.h>
+int main() {
+  int a,b;
+  sleep(5);
+  scanf("%d %d",&a,&b);
+  printf("%d\\n",a+b);
+  return 0;
+}""")
+
         self.table.setWidget(3,1,self.source)
 
         self.button = Button("Submit",self)
@@ -201,7 +348,6 @@ class SubmitTab:
 
     def onSubmitComplete(self,event):
         self.msg.setVisible(False)
-        self.app.tabs.selectTab(2)
 
     def onSubmit(self,evt):
         self.msg.setVisible(True)
@@ -292,6 +438,11 @@ class App:
         self.cookie = None
         setCookie('cookie','',24*60*60)
         self.loginButton.setText("Log in")
+
+def switchToStatusTab():
+    global app
+    app.tabs.selectTab(2)
+    app.statusTab.update()
 
 if __name__ == '__main__':
     app = App()

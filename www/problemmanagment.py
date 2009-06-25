@@ -58,7 +58,7 @@ def submit(uid, problem, lang, source, fn):
         session.add(s)
         session.commit()
         
-        return "Hello"
+        return ""
     except Exception as e:
         return str(e)
 

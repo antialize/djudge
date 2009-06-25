@@ -25,8 +25,10 @@ def submit(req):
         msg = problemmanagment.submit(uid,problem,lang,source,fn)
     except Exception as e:
         msg = str(e)
+
+    req.content_type = "text/html"
     if msg:
-        req.content_type = "text/html"
         msg = msg.replace('\\','\\\\').replace('"','\\"')
         return "<html><body><script>alert(\"%s\")</script></body></html>"%msg
-    return ""
+    else:
+        return """<html><body><script>window.parent.document.modules.main.main.switchToStatusTab();</script></body></html>"""

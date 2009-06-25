@@ -3,8 +3,7 @@ from sqlalchemy.orm import mapper, sessionmaker, relation, backref
 from sqlalchemy.ext.declarative import declarative_base
 
 Base = declarative_base()
-engine = create_engine('mysql://djudge:djudge@localhost/djudge', echo=True)
-cacheengien = create_engine('sqlite:///:memory:', echo=True)
+engine = create_engine('mysql://djudge:djudge@localhost/djudge', echo=True, pool_recycle=30)
 
 Session = sessionmaker(bind=engine)
 
