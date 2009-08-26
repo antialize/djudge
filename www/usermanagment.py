@@ -16,8 +16,9 @@ def login(handle,password):
     if q.count() == 0:
         return None
     else:
-        uid = q.one().id
-        i = b64encode(urandom(32))
+        u = q.one()
+        uid = u.id
+        i = b64encode(urandom(33))
         #Hope that it does not colide
         l = Login()
         l.uid = uid
@@ -25,13 +26,20 @@ def login(handle,password):
         l.time = datetime.utcnow()
         session.add(l)
         session.commit()
-        return i
+        return [i, uid, u.admin]
+
+def getUser(cookie):
+    session = Session()
+    q = session.query(Login).filter_by(cookie=cookie)
+    if q.count() == 0:
+        raise Exception("Not logged in")
+    q = session.query(User).filter_by(id=q.one().uid)
+    if q.count() == 0:
+        raise Exception("User not found")
+    return q.one()
 
 def getUid(cookie):
-    session = Session()
-    x = session.query(Login).filter_by(cookie=cookie).one()
-    if not x:
-        raise Exception("Not logged in")
-    return x.uid
+    return getUser(cookie).id
+
     
 

@@ -62,7 +62,7 @@ def submit(uid, problem, lang, source, fn):
     except Exception as e:
         return str(e)
 
-def pullresults():
+def pull():
     session = Session()
     for (jobid,code,msg) in client.pullresults():
         submission = session.query(Submission).filter_by(jobid=jobid,code=-1).one()
